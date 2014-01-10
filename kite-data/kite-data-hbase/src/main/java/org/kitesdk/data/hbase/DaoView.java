@@ -25,6 +25,7 @@ import org.kitesdk.data.spi.AbstractRangeView;
 import org.kitesdk.data.spi.StorageKey;
 import org.kitesdk.data.spi.Marker;
 import org.kitesdk.data.spi.MarkerRange;
+import org.kitesdk.data.spi.RangePredicate;
 import java.util.List;
 
 class DaoView<E> extends AbstractRangeView<E> {
@@ -36,18 +37,19 @@ class DaoView<E> extends AbstractRangeView<E> {
     this.dataset = dataset;
   }
 
-  private DaoView(DaoView<E> view, MarkerRange range) {
-    super(view, range);
+  private DaoView(DaoView<E> view, RangePredicate p) {
+    super(view, p);
     this.dataset = view.dataset;
   }
 
   @Override
-  protected DaoView<E> newLimitedCopy(MarkerRange newRange) {
-    return new DaoView<E>(this, newRange);
+  protected DaoView<E> filter(RangePredicate p) {
+    return new DaoView<E>(this, p);
   }
 
   @Override
   public DatasetReader<E> newReader() {
+    MarkerRange range = predicate.getRange();
     return dataset.getDao().getScanner(toPartitionKey(range.getStart()),
         range.getStart().isInclusive(), toPartitionKey(range.getEnd()),
         range.getEnd().isInclusive());
@@ -68,7 +70,7 @@ class DaoView<E> extends AbstractRangeView<E> {
       @Override
       public void write(E entity) {
         StorageKey key = partitionStratKey.reuseFor(entity);
-        if (!range.contains(key)) {
+        if (!predicate.apply(key)) {
           throw new IllegalArgumentException("View does not contain entity: "
               + entity);
         }

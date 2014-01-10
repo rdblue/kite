@@ -24,6 +24,7 @@ import org.kitesdk.data.View;
 import org.kitesdk.data.spi.AbstractRangeView;
 import org.kitesdk.data.spi.StorageKey;
 import org.kitesdk.data.spi.MarkerRange;
+import org.kitesdk.data.spi.RangePredicate;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -51,15 +52,15 @@ class FileSystemView<E> extends AbstractRangeView<E> {
     this.root = dataset.getDirectory();
   }
 
-  private FileSystemView(FileSystemView<E> view, MarkerRange range) {
-    super(view, range);
+  private FileSystemView(FileSystemView<E> view, RangePredicate p) {
+    super(view, p);
     this.fs = view.fs;
     this.root = view.root;
   }
 
   @Override
-  protected FileSystemView<E> newLimitedCopy(MarkerRange newRange) {
-    return new FileSystemView<E>(this, newRange);
+  protected FileSystemView<E> filter(RangePredicate p) {
+    return new FileSystemView<E>(this, p);
   }
 
   @Override
@@ -135,7 +136,7 @@ class FileSystemView<E> extends AbstractRangeView<E> {
     try {
       return new FileSystemPartitionIterator(
           fs, root,
-          dataset.getDescriptor().getPartitionStrategy(), range);
+          dataset.getDescriptor().getPartitionStrategy(), predicate);
     } catch (IOException ex) {
       throw new DatasetException("Cannot list partitions in view:" + this, ex);
     }

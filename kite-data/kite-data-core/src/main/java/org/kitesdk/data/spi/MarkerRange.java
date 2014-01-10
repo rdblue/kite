@@ -104,6 +104,45 @@ public class MarkerRange {
         new Boundary(comparator, partial, true));
   }
 
+  public MarkerRange combine(MarkerRange other) {
+
+    Preconditions.checkArgument(other.start == Boundary.UNBOUNDED ||
+        contains(other.start.bound),
+        "Start boundary is outside of this range");
+
+    Preconditions.checkArgument(other.end == Boundary.UNBOUNDED ||
+        contains(other.end.bound),
+        "End boundary is outside of this range");
+
+    Boundary newStart;
+    if (start == Boundary.UNBOUNDED) {
+      newStart = other.start;
+    } else if (other.start == Boundary.UNBOUNDED) {
+      newStart = start;
+    } else if (start.isGreaterThan(other.start.bound)) {
+      newStart = start;
+    } else {
+      newStart = other.start;
+    }
+    Boundary newEnd;
+    if (end == Boundary.UNBOUNDED) {
+      newEnd = other.end;
+    } else if (other.end == Boundary.UNBOUNDED) {
+      newEnd = end;
+    } else if (end.isLessThan(other.end.bound)) {
+      newEnd = end;
+    } else {
+      newEnd = other.end;
+    }
+    Preconditions.checkArgument(newStart == Boundary.UNBOUNDED ||
+        newEnd == Boundary.UNBOUNDED ||
+        comparator.contains(newStart.bound, newEnd.bound) ||
+        comparator.contains(newEnd.bound, newStart.bound) ||
+        !newStart.isGreaterThan(newEnd.bound),
+        "Ranges do not overlap: %s, %s", this, other);
+    return new MarkerRange(comparator, newStart, newEnd);
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {

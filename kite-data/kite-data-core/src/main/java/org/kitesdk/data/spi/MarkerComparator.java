@@ -60,7 +60,7 @@ public class MarkerComparator implements Comparator<Marker> {
       Object containerValue = container.valueFor(field);
       if (containerValue != null) {
         Object testValue = test.valueFor(field);
-        if (field.compare(containerValue, testValue) != 0) {
+        if (testValue == null || field.compare(containerValue, testValue) != 0) {
           return false;
         }
       }

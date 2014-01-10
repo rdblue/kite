@@ -16,6 +16,7 @@
 
 package org.kitesdk.data.spi;
 
+import com.google.common.base.Preconditions;
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
 import com.google.common.base.Objects;
@@ -34,7 +35,8 @@ import javax.annotation.concurrent.Immutable;
 public abstract class AbstractRangeView<E> implements RangeView<E> {
 
   protected final Dataset<E> dataset;
-  protected final MarkerRange range;
+  protected final MarkerComparator comparator;
+  protected final RangePredicate predicate;
 
   // This class is Immutable and must be thread-safe
   protected final ThreadLocal<StorageKey> keys;
@@ -43,8 +45,8 @@ public abstract class AbstractRangeView<E> implements RangeView<E> {
     this.dataset = dataset;
     final DatasetDescriptor descriptor = dataset.getDescriptor();
     if (descriptor.isPartitioned()) {
-      this.range = new MarkerRange(new MarkerComparator(
-          descriptor.getPartitionStrategy()));
+      this.comparator = new MarkerComparator(descriptor.getPartitionStrategy());
+      this.predicate = RangePredicates.all(comparator);
       this.keys = new ThreadLocal<StorageKey>() {
         @Override
         protected StorageKey initialValue() {
@@ -52,20 +54,22 @@ public abstract class AbstractRangeView<E> implements RangeView<E> {
         }
       };
     } else {
-      // use UNDEFINED, which handles inappropriate calls to range methods
-      this.range = MarkerRange.UNDEFINED;
+      // use undefined predicate, which handles inappropriate calls to range methods
+      this.comparator = null;
+      this.predicate = RangePredicates.undefined();
       this.keys = null; // not used
     }
   }
 
-  protected AbstractRangeView(AbstractRangeView<E> view, MarkerRange range) {
+  protected AbstractRangeView(AbstractRangeView<E> view, RangePredicate predicate) {
     this.dataset = view.dataset;
-    this.range = range;
+    this.comparator = view.comparator;
+    this.predicate = predicate;
     // thread-safe, so okay to reuse when views share a partition strategy
     this.keys = view.keys;
   }
 
-  protected abstract AbstractRangeView<E> newLimitedCopy(MarkerRange subRange);
+  protected abstract AbstractRangeView<E> filter(RangePredicate p);
 
   @Override
   public Dataset<E> getDataset() {
@@ -81,7 +85,7 @@ public abstract class AbstractRangeView<E> implements RangeView<E> {
   @Override
   public boolean contains(E entity) {
     if (dataset.getDescriptor().isPartitioned()) {
-      return range.contains(keys.get().reuseFor(entity));
+      return predicate.apply(keys.get().reuseFor(entity));
     } else {
       return true;
     }
@@ -89,32 +93,37 @@ public abstract class AbstractRangeView<E> implements RangeView<E> {
 
   @Override
   public boolean contains(Marker marker) {
-    return range.contains(marker);
+    return predicate.apply(marker);
   }
 
   @Override
   public AbstractRangeView<E> from(Marker start) {
-    return newLimitedCopy(range.from(start));
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.from(comparator, start)));
   }
 
   @Override
   public AbstractRangeView<E> fromAfter(Marker start) {
-    return newLimitedCopy(range.fromAfter(start));
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.fromAfter(comparator, start)));
   }
 
   @Override
   public AbstractRangeView<E> to(Marker end) {
-    return newLimitedCopy(range.to(end));
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.to(comparator, end)));
   }
 
   @Override
   public AbstractRangeView<E> toBefore(Marker end) {
-    return newLimitedCopy(range.toBefore(end));
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.toBefore(comparator, end)));
   }
 
   @Override
   public AbstractRangeView<E> of(Marker partial) {
-    return newLimitedCopy(range.of(partial));
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.of(comparator, partial)));
   }
 
   @Override
@@ -129,19 +138,19 @@ public abstract class AbstractRangeView<E> implements RangeView<E> {
 
     AbstractRangeView that = (AbstractRangeView) o;
     return (Objects.equal(this.dataset, that.dataset) &&
-        Objects.equal(this.range, that.range));
+        Objects.equal(this.predicate, that.predicate));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(getClass(), dataset, range);
+    return Objects.hashCode(getClass(), dataset, predicate);
   }
 
   @Override
   public String toString() {
     return Objects.toStringHelper(this)
         .add("dataset", dataset)
-        .add("range", range)
+        .add("predicate", predicate)
         .toString();
   }
 }

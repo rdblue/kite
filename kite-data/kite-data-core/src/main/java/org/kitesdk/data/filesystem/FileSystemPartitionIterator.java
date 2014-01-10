@@ -21,6 +21,7 @@ import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.spi.StorageKey;
 import org.kitesdk.data.spi.MarkerRange;
+import org.kitesdk.data.spi.RangePredicate;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -46,6 +47,18 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
   private final FileSystem fs;
   private final Path rootDirectory;
   private final Iterator<StorageKey> iterator;
+
+  private static class KeyPredicate implements Predicate<StorageKey> {
+    private final RangePredicate predicate;
+
+    public KeyPredicate(RangePredicate predicate) {
+      this.predicate = predicate;
+    }
+
+    @Override public boolean apply(StorageKey key) {
+      return predicate.apply(key);
+    }
+  }
 
   class FileSystemIterator extends MultiLevelIterator<String> {
     public FileSystemIterator(int depth) throws IOException {
@@ -74,22 +87,6 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
       }
 
       return dirs;
-    }
-  }
-
-  /**
-   * Predicate to determine whether a {@link org.kitesdk.data.spi.StorageKey} is in a {@link MarkerRange}.
-   */
-  private static class InRange implements Predicate<StorageKey> {
-    private final MarkerRange range;
-
-    public InRange(MarkerRange range) {
-      this.range = range;
-    }
-
-    @Override
-    public boolean apply(StorageKey key) {
-      return range.contains(key);
     }
   }
 
@@ -123,7 +120,8 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
   }
 
   FileSystemPartitionIterator(
-      FileSystem fs, Path root, PartitionStrategy strategy, MarkerRange range)
+      FileSystem fs, Path root, PartitionStrategy strategy,
+      final RangePredicate predicate)
       throws IOException {
     Preconditions.checkArgument(fs.isDirectory(root));
     this.fs = fs;
@@ -132,7 +130,7 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
         Iterators.transform(
             new FileSystemIterator(strategy.getFieldPartitioners().size()),
             new MakeKey(strategy)),
-        new InRange(range));
+        new KeyPredicate(predicate));
   }
 
   @Override

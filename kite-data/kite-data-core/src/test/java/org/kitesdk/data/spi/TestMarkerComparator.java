@@ -135,6 +135,7 @@ public class TestMarkerComparator {
   public void testContains() {
     Assert.assertTrue(comparator.contains(OCT, OCT_12));
     Assert.assertTrue(comparator.contains(OCT, OCT));
+    Assert.assertFalse(comparator.contains(OCT_12, OCT));
     Assert.assertFalse(comparator.contains(OCT, SEPT));
     Assert.assertFalse(comparator.contains(OCT, SEPT_30));
     Assert.assertFalse(comparator.contains(OCT, NOV));
