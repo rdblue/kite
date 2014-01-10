@@ -99,6 +99,55 @@ public class RangePredicates {
     }
   }
 
+  private static class EqualityRangePredicate extends MarkerRangePredicate {
+
+    private final String name;
+    private final Object value;
+
+    public EqualityRangePredicate(MarkerComparator markerComparator, String name, Object value) {
+      super(new MarkerRange(markerComparator));
+      this.name = name;
+      this.value = value;
+    }
+
+    @Override
+    public boolean apply(@Nullable Marker input) {
+      return input != null && input.has(name) && Objects.equal(input.get(name), value);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+
+      if (!(o instanceof EqualityRangePredicate)) {
+        return false;
+      }
+
+      EqualityRangePredicate that = (EqualityRangePredicate) o;
+      return (Objects.equal(this.name, that.name) &&
+        Objects.equal(this.value, that.value) &&
+        Objects.equal(this.getRange(), that.getRange()));
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(name, value, getRange());
+    }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this)
+          .add("name", name)
+          .add("value", value)
+          .add("range", getRange())
+          .toString();
+    }
+  }
+
+
+
   private static class AndRangePredicate implements RangePredicate {
 
     private final RangePredicate p1;
@@ -170,6 +219,30 @@ public class RangePredicates {
 
   public static RangePredicate of(MarkerComparator comparator, Marker partial) {
     return new MarkerRangePredicate(new MarkerRange(comparator).of(partial));
+  }
+
+  public static RangePredicate with(MarkerComparator comparator, String name, Object value) {
+    return new EqualityRangePredicate(comparator, name, value);
+  }
+
+  public static RangePredicate from(MarkerComparator comparator, String name, Object value) {
+    Marker marker = new Marker.Builder(name, value).build();
+    return new MarkerRangePredicate(new MarkerRange(comparator).from(marker));
+  }
+
+  public static RangePredicate fromAfter(MarkerComparator comparator, String name, Object value) {
+    Marker marker = new Marker.Builder(name, value).build();
+    return new MarkerRangePredicate(new MarkerRange(comparator).fromAfter(marker));
+  }
+
+  public static RangePredicate to(MarkerComparator comparator, String name, Object value) {
+    Marker marker = new Marker.Builder(name, value).build();
+    return new MarkerRangePredicate(new MarkerRange(comparator).to(marker));
+  }
+
+  public static RangePredicate toBefore(MarkerComparator comparator, String name, Object value) {
+    Marker marker = new Marker.Builder(name, value).build();
+    return new MarkerRangePredicate(new MarkerRange(comparator).toBefore(marker));
   }
 
   public static RangePredicate and(RangePredicate p1, RangePredicate p2) {

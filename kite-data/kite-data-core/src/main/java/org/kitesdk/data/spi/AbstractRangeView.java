@@ -22,6 +22,7 @@ import org.kitesdk.data.DatasetDescriptor;
 import com.google.common.base.Objects;
 
 import javax.annotation.concurrent.Immutable;
+import org.kitesdk.data.View;
 
 /**
  * A common View base class to simplify implementations of Views created from ranges.
@@ -124,6 +125,36 @@ public abstract class AbstractRangeView<E> implements RangeView<E> {
   public AbstractRangeView<E> of(Marker partial) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.of(comparator, partial)));
+  }
+
+  @Override
+  public View<E> with(String name, Object value) {
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.with(comparator, name, value)));
+  }
+
+  @Override
+  public View<E> from(String name, Object value) {
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.from(comparator, name, value)));
+  }
+
+  @Override
+  public View<E> fromAfter(String name, Object value) {
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.fromAfter(comparator, name, value)));
+  }
+
+  @Override
+  public View<E> to(String name, Object value) {
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.to(comparator, name, value)));
+  }
+
+  @Override
+  public View<E> toBefore(String name, Object value) {
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.toBefore(comparator, name, value)));
   }
 
   @Override
