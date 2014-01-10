@@ -73,6 +73,8 @@ class MultiFileDatasetReader<E> extends AbstractDatasetReader<E> {
           descriptor.getSchema());
     } else if (Formats.CSV.equals(descriptor.getFormat())) {
       reader = new CSVFileReader<E>(fileSystem, filesIter.next(), descriptor);
+    } else if (Formats.INPUTFORMAT.equals(descriptor.getFormat())) {
+      reader = new InputFormatReader(fileSystem, filesIter.next(), descriptor);
     } else {
       reader = new FileSystemDatasetReader<E>(fileSystem, filesIter.next(),
           descriptor.getSchema());

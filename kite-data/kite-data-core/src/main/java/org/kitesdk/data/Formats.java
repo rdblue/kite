@@ -48,6 +48,13 @@ public class Formats {
   public static final Format CSV = new Format("csv");
 
   /**
+   * INPUTFORMAT: a mapreduce InputFormat (read-only).
+   *
+   * @since 0.11.0
+   */
+  public static final Format INPUTFORMAT = new Format("inputformat");
+
+  /**
    * Return a {@link Format} for the format name specified. If {@code formatName}
    * is not a valid name, an IllegalArgumentException is thrown. Currently the
    * formats <q>avro</q>, <q>csv</q>, and <q>parquet</q> are supported. Format names are
@@ -64,6 +71,8 @@ public class Formats {
       return PARQUET;
     } else if (formatName.equals("csv")) {
       return CSV;
+    } else if (formatName.equals("inputformat")) {
+      return INPUTFORMAT;
     } else {
       throw new IllegalArgumentException("Unknown format type: " + formatName);
     }
