@@ -157,7 +157,7 @@ public class RangePredicates {
     public AndRangePredicate(RangePredicate p1, RangePredicate p2) {
       this.p1 = p1;
       this.p2 = p2;
-      this.range = p1.getRange().combine(p2.getRange());
+      this.range = p1.getRange().intersection(p2.getRange());
     }
 
     @Override

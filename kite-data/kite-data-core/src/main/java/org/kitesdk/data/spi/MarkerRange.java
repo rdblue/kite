@@ -18,6 +18,8 @@ package org.kitesdk.data.spi;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Ordering;
+import java.util.Comparator;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -39,8 +41,8 @@ public class MarkerRange {
 
   private MarkerRange() {
     this.comparator = null;
-    this.start = Boundary.UNBOUNDED;
-    this.end = Boundary.UNBOUNDED;
+    this.start = Boundary.NEGATIVE_INFINITY;
+    this.end = Boundary.POSITIVE_INFINITY;
   }
 
   public MarkerRange(MarkerComparator comparator) {
@@ -48,13 +50,25 @@ public class MarkerRange {
         "Comparator cannot be null.");
 
     this.comparator = comparator;
-    this.start = Boundary.UNBOUNDED;
-    this.end = Boundary.UNBOUNDED;
+    this.start = Boundary.NEGATIVE_INFINITY;
+    this.end = Boundary.POSITIVE_INFINITY;
   }
 
   private MarkerRange(
       MarkerComparator comparator,
       Boundary start, Boundary end) {
+    try {
+      if (start.compareTo(end) > 0) {
+        throw new IllegalArgumentException("Invalid range: " + start + ", " + end);
+      }
+    } catch (IllegalStateException e) {
+      // one boundary contains the other
+      // check that the containing boundary is an inclusive bound
+      if ((comparator.contains(start.bound, end.bound) && !start.isInclusive) ||
+          (comparator.contains(end.bound, start.bound) && !end.isInclusive)) {
+        throw new IllegalArgumentException("Invalid range: " + start + ", " + end);
+      }
+    }
     this.comparator = comparator;
     this.start = start;
     this.end = end;
@@ -104,42 +118,9 @@ public class MarkerRange {
         new Boundary(comparator, partial, true));
   }
 
-  public MarkerRange combine(MarkerRange other) {
-
-    Preconditions.checkArgument(other.start == Boundary.UNBOUNDED ||
-        contains(other.start.bound),
-        "Start boundary is outside of this range");
-
-    Preconditions.checkArgument(other.end == Boundary.UNBOUNDED ||
-        contains(other.end.bound),
-        "End boundary is outside of this range");
-
-    Boundary newStart;
-    if (start == Boundary.UNBOUNDED) {
-      newStart = other.start;
-    } else if (other.start == Boundary.UNBOUNDED) {
-      newStart = start;
-    } else if (start.isGreaterThan(other.start.bound)) {
-      newStart = start;
-    } else {
-      newStart = other.start;
-    }
-    Boundary newEnd;
-    if (end == Boundary.UNBOUNDED) {
-      newEnd = other.end;
-    } else if (other.end == Boundary.UNBOUNDED) {
-      newEnd = end;
-    } else if (end.isLessThan(other.end.bound)) {
-      newEnd = end;
-    } else {
-      newEnd = other.end;
-    }
-    Preconditions.checkArgument(newStart == Boundary.UNBOUNDED ||
-        newEnd == Boundary.UNBOUNDED ||
-        comparator.contains(newStart.bound, newEnd.bound) ||
-        comparator.contains(newEnd.bound, newStart.bound) ||
-        !newStart.isGreaterThan(newEnd.bound),
-        "Ranges do not overlap: %s, %s", this, other);
+  public MarkerRange intersection(MarkerRange other) {
+    Boundary newStart = Ordering.from(new Boundary.LeftComparator()).max(start, other.start);
+    Boundary newEnd = Ordering.from(new Boundary.RightComparator()).min(end, other.end);
     return new MarkerRange(comparator, newStart, newEnd);
   }
 
@@ -233,9 +214,7 @@ public class MarkerRange {
    *
    * @since 0.9.0
    */
-  public static class Boundary {
-
-    public static final Boundary UNBOUNDED = new Boundary();
+  public static class Boundary implements Comparable<Boundary> {
 
     private final MarkerComparator comparator;
     private final Marker bound;
@@ -244,7 +223,7 @@ public class MarkerRange {
     private Boundary() {
       this.comparator = null;
       this.bound = null;
-      this.isInclusive = true;
+      this.isInclusive = false;
     }
 
     public Boundary(MarkerComparator comparator, Marker bound, boolean isInclusive) {
@@ -294,6 +273,20 @@ public class MarkerRange {
       }
     }
 
+    @Override
+    public int compareTo(Boundary other) {
+      if (this == NEGATIVE_INFINITY) {
+        return other == NEGATIVE_INFINITY ? 0 : -1;
+      } else if (other == NEGATIVE_INFINITY) {
+        return 1;
+      } else if (this == POSITIVE_INFINITY) {
+        return other == POSITIVE_INFINITY ? 0 : 1;
+      } else if (other == POSITIVE_INFINITY) {
+        return -1;
+      }
+      return comparator.compare(bound, other.bound);
+    }
+
     public Marker getBound() {
       return bound;
     }
@@ -334,6 +327,105 @@ public class MarkerRange {
             .add("inclusive", isInclusive)
             .add("bound", bound)
             .toString();
+      }
+    }
+
+    public static Boundary NEGATIVE_INFINITY = new Boundary() {
+      @Override
+      public boolean isLessThan(Marker other) {
+        return true;
+      }
+
+      @Override
+      public boolean isGreaterThan(Marker other) {
+        return false;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        return this == o;
+      }
+
+      @Override
+      public String toString() {
+        return Objects.toStringHelper(this)
+              .add("bound", "NEGATIVE_INFINITY")
+              .toString();
+      }
+    };
+
+    public static Boundary POSITIVE_INFINITY = new Boundary() {
+      @Override
+      public boolean isLessThan(Marker other) {
+        return false;
+      }
+
+      @Override
+      public boolean isGreaterThan(Marker other) {
+        return true;
+      }
+
+      @Override
+      public boolean equals(Object o) {
+        return this == o;
+      }
+
+      @Override
+      public String toString() {
+        return Objects.toStringHelper(this)
+            .add("bound", "POSITIVE_INFINITY")
+            .toString();
+      }
+    };
+
+    public static class LeftComparator implements Comparator<Boundary> {
+      @Override
+      public int compare(Boundary b1, Boundary b2) {
+        if (b1 == NEGATIVE_INFINITY) {
+          return b2 == NEGATIVE_INFINITY ? 0 : -1;
+        } else if (b2 == NEGATIVE_INFINITY) {
+          return 1;
+        } else if (b1 == POSITIVE_INFINITY) {
+          return b2 == POSITIVE_INFINITY ? 0 : 1;
+        } else if (b2 == POSITIVE_INFINITY) {
+          return -1;
+        }
+        if (b1.isInclusive) {
+          return b1.comparator.leftCompare(b1.bound, b2.bound);
+        } else {
+          try {
+            return b1.comparator.compare(b1.bound, b2.bound);
+          } catch (IllegalStateException ex) {
+            // one contained the other, which is not allowed for exclusive ranges
+            return 0;
+          }
+        }
+      }
+    }
+
+    public static class RightComparator implements Comparator<Boundary> {
+      @Override
+      public int compare(Boundary b1, Boundary b2) {
+        if (b1 == NEGATIVE_INFINITY) {
+          return b2 == NEGATIVE_INFINITY ? 0 : -1;
+        } else if (b2 == NEGATIVE_INFINITY) {
+          return 1;
+        } else if (b1 == POSITIVE_INFINITY) {
+          return b2 == POSITIVE_INFINITY ? 0 : 1;
+        } else if (b2 == POSITIVE_INFINITY) {
+          return -1;
+        }
+        if (b1.isInclusive) {
+          return b1.comparator.rightCompare(b1.bound, b2.bound);
+        } else {
+          try {
+            return b1.comparator.compare(b1.bound, b2.bound);
+          } catch (IllegalStateException ex) {
+            // one contained the other, which is not allowed for exclusive ranges
+            return 0;
+          }
+        }
+
       }
     }
 

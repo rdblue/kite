@@ -62,7 +62,7 @@ public class TestMarkerRange {
   }
 
   @Test
-  public void testCombine() {
+  public void testIntersection() {
     final MarkerRange unbounded = new MarkerRange(comparator);
     final MarkerRange unboundedToNov1 = new MarkerRange(comparator).to(NOV_1);
     final MarkerRange oct12ToOct15 = new MarkerRange(comparator).from(OCT_12).to(OCT_15);
@@ -70,43 +70,47 @@ public class TestMarkerRange {
     final MarkerRange oct12ToNov1 = new MarkerRange(comparator).from(OCT_12).to(NOV_1);
     final MarkerRange sept30ToNov1 = new MarkerRange(comparator).from(SEPT_30).to(NOV_1);
     final MarkerRange sept30ToUnbounded = new MarkerRange(comparator).from(SEPT_30);
+    final MarkerRange nov1ToUnbounded = new MarkerRange(comparator).from(NOV_1);
 
-    // Combine with self
-    assertEquals(unbounded, unbounded.combine(unbounded));
-    assertEquals(oct12ToOct15, oct12ToOct15.combine(oct12ToOct15));
-    assertEquals(unboundedToNov1, unboundedToNov1.combine(unboundedToNov1));
-    assertEquals(sept30ToUnbounded, sept30ToUnbounded.combine(sept30ToUnbounded));
+    // Intersection with self
+    assertEquals(unbounded, unbounded.intersection(unbounded));
+    assertEquals(oct12ToOct15, oct12ToOct15.intersection(oct12ToOct15));
+    assertEquals(unboundedToNov1, unboundedToNov1.intersection(unboundedToNov1));
+    assertEquals(sept30ToUnbounded, sept30ToUnbounded.intersection(sept30ToUnbounded));
 
-    // Combine with double unbounded
-    assertEquals(oct12ToOct15, unbounded.combine(oct12ToOct15));
-    assertEquals(oct12ToOct15, oct12ToOct15.combine(unbounded));
+    // Intersection with double unbounded
+    assertEquals(oct12ToOct15, unbounded.intersection(oct12ToOct15));
+    assertEquals(oct12ToOct15, oct12ToOct15.intersection(unbounded));
 
-    // Combine with single unbounded
-    assertEquals(oct12ToOct15, unboundedToNov1.combine(oct12ToOct15));
-    assertEquals(oct12ToOct15, sept30ToUnbounded.combine(oct12ToOct15));
+    // Intersection with single unbounded
+    assertEquals(oct12ToOct15, unboundedToNov1.intersection(oct12ToOct15));
+    assertEquals(oct12ToOct15, sept30ToUnbounded.intersection(oct12ToOct15));
+    assertEquals(nov1ToUnbounded, nov1ToUnbounded.intersection(sept30ToUnbounded));
+    assertEquals(nov1ToUnbounded, sept30ToUnbounded.intersection(nov1ToUnbounded));
 
-    assertEquals(oct12ToOct15, sept30ToNov1.combine(oct12ToOct15));
-    TestHelpers.assertThrows("Can't combine with bounds outside range.",
+    // Fully-contained
+    assertEquals(oct12ToOct15, sept30ToNov1.intersection(oct12ToOct15));
+    assertEquals(oct12ToOct15, oct12ToOct15.intersection(sept30ToNov1));
+
+    // Overlap
+    assertEquals(oct12ToOct15, sept30ToOct15.intersection(oct12ToNov1));
+    assertEquals(oct12ToOct15, oct12ToNov1.intersection(sept30ToOct15));
+
+    // No overlap
+    TestHelpers.assertThrows("Can't intersection when no overlap.",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        oct12ToOct15.combine(sept30ToNov1);
+        sept30ToOct15.intersection(nov1ToUnbounded);
+      }
+    });
+    TestHelpers.assertThrows("Can't intersection when no overlap.",
+        IllegalArgumentException.class, new Runnable() {
+      @Override
+      public void run() {
+        nov1ToUnbounded.intersection(sept30ToOct15);
       }
     });
 
-    TestHelpers.assertThrows("Can't combine with bounds outside range.",
-        IllegalArgumentException.class, new Runnable() {
-      @Override
-      public void run() {
-        sept30ToOct15.combine(oct12ToNov1);
-      }
-    });
-    TestHelpers.assertThrows("Can't combine with bounds outside range.",
-        IllegalArgumentException.class, new Runnable() {
-      @Override
-      public void run() {
-        oct12ToNov1.combine(sept30ToOct15);
-      }
-    });
   }
 }

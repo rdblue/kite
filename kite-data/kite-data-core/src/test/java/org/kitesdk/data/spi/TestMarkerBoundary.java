@@ -119,15 +119,9 @@ public class TestMarkerBoundary {
     Assert.assertFalse(bound.isGreaterThan(NOV));
   }
 
-  public void testUnbounded() {
-    Boundary bound = Boundary.UNBOUNDED;
-    Assert.assertTrue(bound.isGreaterThan(YEAR));
-    Assert.assertTrue(bound.isGreaterThan(SEPT));
-    Assert.assertTrue(bound.isGreaterThan(SEPT_30));
-    Assert.assertTrue(bound.isGreaterThan(OCT_12));
-    Assert.assertTrue(bound.isGreaterThan(OCT));
-    Assert.assertTrue(bound.isGreaterThan(NOV_1));
-    Assert.assertTrue(bound.isGreaterThan(NOV));
+  @Test
+  public void testNegativeInfinity() {
+    Boundary bound = Boundary.NEGATIVE_INFINITY;
     Assert.assertTrue(bound.isLessThan(YEAR));
     Assert.assertTrue(bound.isLessThan(SEPT));
     Assert.assertTrue(bound.isLessThan(SEPT_30));
@@ -135,6 +129,18 @@ public class TestMarkerBoundary {
     Assert.assertTrue(bound.isLessThan(OCT));
     Assert.assertTrue(bound.isLessThan(NOV_1));
     Assert.assertTrue(bound.isLessThan(NOV));
+  }
+
+  @Test
+  public void testPositiveInfinity() {
+    Boundary bound = Boundary.POSITIVE_INFINITY;
+    Assert.assertTrue(bound.isGreaterThan(YEAR));
+    Assert.assertTrue(bound.isGreaterThan(SEPT));
+    Assert.assertTrue(bound.isGreaterThan(SEPT_30));
+    Assert.assertTrue(bound.isGreaterThan(OCT_12));
+    Assert.assertTrue(bound.isGreaterThan(OCT));
+    Assert.assertTrue(bound.isGreaterThan(NOV_1));
+    Assert.assertTrue(bound.isGreaterThan(NOV));
   }
 
 }
