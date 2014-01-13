@@ -21,6 +21,7 @@ import org.kitesdk.data.DatasetException;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.FieldPartitioner;
+import org.kitesdk.data.ViewBuilder;
 import org.kitesdk.data.spi.Marker;
 import org.kitesdk.data.PartitionKey;
 import org.kitesdk.data.PartitionStrategy;
@@ -179,43 +180,8 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
   }
 
   @Override
-  public View<E> from(String name, Object value) {
-    return unbounded.from(name, value);
-  }
-
-  @Override
-  public View<E> with(String name) {
-    return unbounded.with(name);
-  }
-
-  @Override
-  public View<E> with(String name, Object value) {
-    return unbounded.with(name, value);
-  }
-
-  @Override
-  public View<E> fromAfter(String name, Object value) {
-    return unbounded.fromAfter(name, value);
-  }
-
-  @Override
-  public View<E> to(String name, Object value) {
-    return unbounded.to(name, value);
-  }
-
-  @Override
-  public View<E> toBefore(String name, Object value) {
-    return unbounded.toBefore(name, value);
-  }
-
-  @Override
-  public View<E> union(View<E> other) {
-    return unbounded.union(other);
-  }
-
-  @Override
-  public View<E> complement() {
-    return unbounded.complement();
+  public ViewBuilder<E> getViewBuilder() {
+    return unbounded;
   }
 
   @Override
