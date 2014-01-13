@@ -99,13 +99,14 @@ public class RangePredicates {
     }
   }
 
-  private static class EqualityRangePredicate extends MarkerRangePredicate {
+  private static class EqualityRangePredicate implements RangePredicate {
 
+    private final MarkerRange range;
     private final String name;
     private final Object value;
 
     public EqualityRangePredicate(MarkerComparator markerComparator, String name, Object value) {
-      super(new MarkerRange(markerComparator));
+      this.range = new MarkerRange(markerComparator);
       this.name = name;
       this.value = value;
     }
@@ -113,6 +114,11 @@ public class RangePredicates {
     @Override
     public boolean apply(@Nullable Marker input) {
       return input != null && input.has(name) && Objects.equal(input.get(name), value);
+    }
+
+    @Override
+    public MarkerRange getRange() {
+      return range;
     }
 
     @Override
@@ -128,7 +134,7 @@ public class RangePredicates {
       EqualityRangePredicate that = (EqualityRangePredicate) o;
       return (Objects.equal(this.name, that.name) &&
         Objects.equal(this.value, that.value) &&
-        Objects.equal(this.getRange(), that.getRange()));
+        Objects.equal(this.getRange(), that.range));
     }
 
     @Override
@@ -146,18 +152,24 @@ public class RangePredicates {
     }
   }
 
-  private static class FieldSetRangePredicate extends MarkerRangePredicate {
+  private static class FieldSetRangePredicate implements RangePredicate {
 
+    private final MarkerRange range;
     private final String name;
 
     public FieldSetRangePredicate(MarkerComparator markerComparator, String name) {
-      super(new MarkerRange(markerComparator));
+      this.range = new MarkerRange(markerComparator);
       this.name = name;
     }
 
     @Override
     public boolean apply(@Nullable Marker input) {
       return input != null && input.has(name);
+    }
+
+    @Override
+    public MarkerRange getRange() {
+      return range;
     }
 
     @Override

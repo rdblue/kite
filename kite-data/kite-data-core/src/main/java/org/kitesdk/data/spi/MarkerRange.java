@@ -19,6 +19,7 @@ package org.kitesdk.data.spi;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
+import java.io.Serializable;
 import java.util.Comparator;
 import javax.annotation.concurrent.Immutable;
 
@@ -353,7 +354,7 @@ public class MarkerRange {
       }
     }
 
-    public static Boundary NEGATIVE_INFINITY = new Boundary() {
+    public static final Boundary NEGATIVE_INFINITY = new Boundary() {
       @Override
       public boolean isLessThan(Marker other) {
         return true;
@@ -377,7 +378,7 @@ public class MarkerRange {
       }
     };
 
-    public static Boundary POSITIVE_INFINITY = new Boundary() {
+    public static final Boundary POSITIVE_INFINITY = new Boundary() {
       @Override
       public boolean isLessThan(Marker other) {
         return false;
@@ -401,7 +402,8 @@ public class MarkerRange {
       }
     };
 
-    public static class LeftComparator implements Comparator<Boundary> {
+    public static class LeftComparator implements Comparator<Boundary>, Serializable {
+      private static final long serialVersionUID = 0;
       @Override
       public int compare(Boundary b1, Boundary b2) {
         if (b1 == NEGATIVE_INFINITY) {
@@ -426,7 +428,8 @@ public class MarkerRange {
       }
     }
 
-    public static class RightComparator implements Comparator<Boundary> {
+    public static class RightComparator implements Comparator<Boundary>, Serializable {
+      private static final long serialVersionUID = 0;
       @Override
       public int compare(Boundary b1, Boundary b2) {
         if (b1 == NEGATIVE_INFINITY) {
