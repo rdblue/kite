@@ -40,14 +40,6 @@ interface RangeView<E> extends View<E> {
   boolean deleteAll();
 
   /**
-   * Returns whether an entity {@link Object} is in this {@code View}.
-   *
-   * @param key an entity {@code Object}
-   * @return true if {@code key} is in the partition space of this view.
-   */
-  boolean contains(E key);
-
-  /**
    * Returns whether a {@link Marker} is in this {@code View}
    *
    * @param marker a {@code Marker}

@@ -67,6 +67,14 @@ public interface View<E> {
    */
   DatasetWriter<E> newWriter();
 
+  /**
+   * Returns whether an entity {@link Object} is in this {@code View}.
+   *
+   * @param key an entity {@code Object}
+   * @return true if {@code key} is in the partition space of this view.
+   */
+  boolean contains(E key);
+
   ViewBuilder<E> getViewBuilder();
 
 }
