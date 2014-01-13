@@ -158,6 +158,15 @@ public abstract class AbstractRangeView<E> implements RangeView<E> {
   }
 
   @Override
+  public View<E> union(View<E> other) {
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    Preconditions.checkArgument(other instanceof AbstractRangeView,
+        "View must be an instance of AbstractRangeView: " + other);
+    AbstractRangeView<E> abstractOther = (AbstractRangeView<E>) other;
+    return filter(RangePredicates.or(predicate, abstractOther.predicate));
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;

@@ -124,6 +124,12 @@ public class MarkerRange {
     return new MarkerRange(comparator, newStart, newEnd);
   }
 
+  public MarkerRange span(MarkerRange other) {
+    Boundary newStart = Ordering.from(new Boundary.LeftComparator()).min(start, other.start);
+    Boundary newEnd = Ordering.from(new Boundary.RightComparator()).max(end, other.end);
+    return new MarkerRange(comparator, newStart, newEnd);
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {

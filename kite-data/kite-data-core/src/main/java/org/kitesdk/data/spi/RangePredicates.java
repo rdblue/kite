@@ -146,8 +146,6 @@ public class RangePredicates {
     }
   }
 
-
-
   private static class AndRangePredicate implements RangePredicate {
 
     private final RangePredicate p1;
@@ -181,6 +179,59 @@ public class RangePredicates {
       }
 
       AndRangePredicate that = (AndRangePredicate) o;
+      return (Objects.equal(this.p1, that.p1) &&
+          Objects.equal(this.p2, that.p2) &&
+          Objects.equal(this.range, that.range));
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(p1, p2, range);
+    }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this)
+          .add("predicate1", p1)
+          .add("predicate2", p2)
+          .add("range", range)
+          .toString();
+    }
+  }
+
+  private static class OrRangePredicate implements RangePredicate {
+
+    private final RangePredicate p1;
+    private final RangePredicate p2;
+    private final MarkerRange range;
+
+    public OrRangePredicate(RangePredicate p1, RangePredicate p2) {
+      this.p1 = p1;
+      this.p2 = p2;
+      this.range = p1.getRange().span(p2.getRange());
+    }
+
+    @Override
+    public boolean apply(@Nullable Marker input) {
+      return p1.apply(input) || p2.apply(input);
+    }
+
+    @Override
+    public MarkerRange getRange() {
+      return range;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+
+      if (!(o instanceof OrRangePredicate)) {
+        return false;
+      }
+
+      OrRangePredicate that = (OrRangePredicate) o;
       return (Objects.equal(this.p1, that.p1) &&
           Objects.equal(this.p2, that.p2) &&
           Objects.equal(this.range, that.range));
@@ -247,6 +298,10 @@ public class RangePredicates {
 
   public static RangePredicate and(RangePredicate p1, RangePredicate p2) {
     return new AndRangePredicate(p1, p2);
+  }
+
+  public static RangePredicate or(RangePredicate p1, RangePredicate p2) {
+    return new OrRangePredicate(p1, p2);
   }
 
 }

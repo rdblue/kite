@@ -113,4 +113,44 @@ public class TestMarkerRange {
     });
 
   }
+
+  @Test
+  public void testSpan() {
+    final MarkerRange unbounded = new MarkerRange(comparator);
+    final MarkerRange unboundedToNov1 = new MarkerRange(comparator).to(NOV_1);
+    final MarkerRange oct12ToOct15 = new MarkerRange(comparator).from(OCT_12).to(OCT_15);
+    final MarkerRange sept30ToOct15 = new MarkerRange(comparator).from(SEPT_30).to(OCT_15);
+    final MarkerRange oct12ToNov1 = new MarkerRange(comparator).from(OCT_12).to(NOV_1);
+    final MarkerRange sept30ToNov1 = new MarkerRange(comparator).from(SEPT_30).to(NOV_1);
+    final MarkerRange sept30ToUnbounded = new MarkerRange(comparator).from(SEPT_30);
+    final MarkerRange nov1ToUnbounded = new MarkerRange(comparator).from(NOV_1);
+
+    // Span with self
+    assertEquals(unbounded, unbounded.span(unbounded));
+    assertEquals(oct12ToOct15, oct12ToOct15.span(oct12ToOct15));
+    assertEquals(unboundedToNov1, unboundedToNov1.span(unboundedToNov1));
+    assertEquals(sept30ToUnbounded, sept30ToUnbounded.span(sept30ToUnbounded));
+
+    // Intersection with double unbounded
+    assertEquals(unbounded, unbounded.span(oct12ToOct15));
+    assertEquals(unbounded, oct12ToOct15.span(unbounded));
+
+    // Intersection with single unbounded
+    assertEquals(unboundedToNov1, unboundedToNov1.span(oct12ToOct15));
+    assertEquals(sept30ToUnbounded, sept30ToUnbounded.span(oct12ToOct15));
+    assertEquals(sept30ToUnbounded, nov1ToUnbounded.span(sept30ToUnbounded));
+    assertEquals(sept30ToUnbounded, sept30ToUnbounded.span(nov1ToUnbounded));
+
+    // Fully-contained
+    assertEquals(sept30ToNov1, sept30ToNov1.span(oct12ToOct15));
+    assertEquals(sept30ToNov1, oct12ToOct15.span(sept30ToNov1));
+
+    // Overlap
+    assertEquals(sept30ToNov1, sept30ToOct15.span(oct12ToNov1));
+    assertEquals(sept30ToNov1, oct12ToNov1.span(sept30ToOct15));
+
+    // No overlap
+    assertEquals(sept30ToUnbounded, sept30ToOct15.span(nov1ToUnbounded));
+    assertEquals(sept30ToUnbounded, nov1ToUnbounded.span(sept30ToOct15));
+  }
 }

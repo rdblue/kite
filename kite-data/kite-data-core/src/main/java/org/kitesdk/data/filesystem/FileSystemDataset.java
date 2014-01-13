@@ -204,6 +204,11 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
   }
 
   @Override
+  public View<E> union(View<E> other) {
+    return unbounded.union(other);
+  }
+
+  @Override
   @Nullable
   @Deprecated
   public Dataset<E> getPartition(PartitionKey key, boolean allowCreate) {

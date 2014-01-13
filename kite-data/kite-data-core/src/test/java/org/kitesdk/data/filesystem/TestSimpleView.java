@@ -159,6 +159,11 @@ public class TestSimpleView {
         testDataset.with("user_id", 0).with("month", 9));
     assertContentEquals(Sets.newHashSet(sepEvent),
         testDataset.with("month", 9).with("user_id", 0));
+
+    // union
+    assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
+        testDataset.from("month", 9).to("month", 9)
+            .union(testDataset.from("month", 11).to("month", 11)));
   }
 
   public static Marker newMarker(Object... values) {
