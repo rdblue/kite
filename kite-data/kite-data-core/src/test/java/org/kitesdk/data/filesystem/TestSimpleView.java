@@ -164,6 +164,11 @@ public class TestSimpleView {
     assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
         testDataset.from("month", 9).to("month", 9)
             .union(testDataset.from("month", 11).to("month", 11)));
+
+    // complement
+    assertContentEquals(Sets.newHashSet(sepEvent),
+        testDataset.from("month", 10).complement());
+
   }
 
   public static Marker newMarker(Object... values) {

@@ -78,4 +78,6 @@ public interface View<E> {
   View<E> toBefore(String name, Object value);
 
   View<E> union(View<E> other);
+
+  View<E> complement();
 }

@@ -130,6 +130,23 @@ public class MarkerRange {
     return new MarkerRange(comparator, newStart, newEnd);
   }
 
+  public MarkerRange complement() {
+    if (start == Boundary.NEGATIVE_INFINITY && end == Boundary.POSITIVE_INFINITY) {
+      throw new IllegalArgumentException("Cannot find complement of unbounded range.");
+    }
+    if (start == Boundary.NEGATIVE_INFINITY) {
+      Boundary newStart = new Boundary(comparator, end.bound, !end.isInclusive);
+      Boundary newEnd = Boundary.POSITIVE_INFINITY;
+      return new MarkerRange(comparator, newStart, newEnd);
+    } else if (end == Boundary.POSITIVE_INFINITY) {
+      Boundary newStart = Boundary.NEGATIVE_INFINITY;
+      Boundary newEnd = new Boundary(comparator, start.bound, !start.isInclusive);
+      return new MarkerRange(comparator, newStart, newEnd);
+    }
+    return new MarkerRange(); // unbounded TODO: use set of ranges to improve efficiency
+  }
+
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {

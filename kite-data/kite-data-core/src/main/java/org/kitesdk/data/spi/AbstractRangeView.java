@@ -167,6 +167,12 @@ public abstract class AbstractRangeView<E> implements RangeView<E> {
   }
 
   @Override
+  public View<E> complement() {
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.not(predicate));
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;

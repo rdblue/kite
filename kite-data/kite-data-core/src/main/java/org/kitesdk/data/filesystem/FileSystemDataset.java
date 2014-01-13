@@ -209,6 +209,11 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
   }
 
   @Override
+  public View<E> complement() {
+    return unbounded.complement();
+  }
+
+  @Override
   @Nullable
   @Deprecated
   public Dataset<E> getPartition(PartitionKey key, boolean allowCreate) {

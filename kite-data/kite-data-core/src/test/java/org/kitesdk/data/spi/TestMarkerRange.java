@@ -97,14 +97,14 @@ public class TestMarkerRange {
     assertEquals(oct12ToOct15, oct12ToNov1.intersection(sept30ToOct15));
 
     // No overlap
-    TestHelpers.assertThrows("Can't intersection when no overlap.",
+    TestHelpers.assertThrows("Can't find intersection when no overlap.",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
         sept30ToOct15.intersection(nov1ToUnbounded);
       }
     });
-    TestHelpers.assertThrows("Can't intersection when no overlap.",
+    TestHelpers.assertThrows("Can't find intersection when no overlap.",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
@@ -152,5 +152,26 @@ public class TestMarkerRange {
     // No overlap
     assertEquals(sept30ToUnbounded, sept30ToOct15.span(nov1ToUnbounded));
     assertEquals(sept30ToUnbounded, nov1ToUnbounded.span(sept30ToOct15));
+  }
+
+  @Test
+  public void testComplement() {
+    final MarkerRange unbounded = new MarkerRange(comparator);
+    final MarkerRange unboundedToNov1 = new MarkerRange(comparator).to(NOV_1);
+    final MarkerRange oct12ToOct15 = new MarkerRange(comparator).from(OCT_12).to(OCT_15);
+    final MarkerRange afterNov1ToUnbounded = new MarkerRange(comparator).fromAfter(NOV_1);
+
+    TestHelpers.assertThrows("Can't find complement of unbounded range.",
+        IllegalArgumentException.class, new Runnable() {
+      @Override
+      public void run() {
+        unbounded.complement();
+      }
+    });
+
+    assertEquals(afterNov1ToUnbounded, unboundedToNov1.complement());
+    assertEquals(unboundedToNov1, afterNov1ToUnbounded.complement());
+    assertEquals(unbounded, oct12ToOct15.complement());
+
   }
 }

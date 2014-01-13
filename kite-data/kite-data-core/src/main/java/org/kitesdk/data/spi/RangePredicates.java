@@ -252,6 +252,55 @@ public class RangePredicates {
     }
   }
 
+  private static class NotRangePredicate implements RangePredicate {
+
+    private final RangePredicate p;
+    private final MarkerRange range;
+
+    public NotRangePredicate(RangePredicate p) {
+      this.p = p;
+      this.range = p.getRange().complement();
+    }
+
+    @Override
+    public boolean apply(@Nullable Marker input) {
+      return !p.apply(input);
+    }
+
+    @Override
+    public MarkerRange getRange() {
+      return range;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+
+      if (!(o instanceof NotRangePredicate)) {
+        return false;
+      }
+
+      NotRangePredicate that = (NotRangePredicate) o;
+      return (Objects.equal(this.p, that.p) &&
+          Objects.equal(this.range, that.range));
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(p, range);
+    }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this)
+          .add("predicate", p)
+          .add("range", range)
+          .toString();
+    }
+  }
+
   public static RangePredicate from(MarkerComparator comparator, Marker start) {
     return new MarkerRangePredicate(new MarkerRange(comparator).from(start));
   }
@@ -302,6 +351,10 @@ public class RangePredicates {
 
   public static RangePredicate or(RangePredicate p1, RangePredicate p2) {
     return new OrRangePredicate(p1, p2);
+  }
+
+  public static RangePredicate not(RangePredicate p) {
+    return new NotRangePredicate(p);
   }
 
 }
