@@ -127,6 +127,46 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
   }
 
   @Override
+  public View<E> from(String name, Object value) {
+    return unbounded.from(name, value);
+  }
+
+  @Override
+  public View<E> with(String name) {
+    return unbounded.with(name);
+  }
+
+  @Override
+  public View<E> with(String name, Object value) {
+    return unbounded.with(name, value);
+  }
+
+  @Override
+  public View<E> fromAfter(String name, Object value) {
+    return unbounded.fromAfter(name, value);
+  }
+
+  @Override
+  public View<E> to(String name, Object value) {
+    return unbounded.to(name, value);
+  }
+
+  @Override
+  public View<E> toBefore(String name, Object value) {
+    return unbounded.toBefore(name, value);
+  }
+
+  @Override
+  public View<E> union(View<E> other) {
+    return unbounded.union(other);
+  }
+
+  @Override
+  public View<E> complement() {
+    return unbounded.complement();
+  }
+
+  @Override
   @SuppressWarnings("deprecation")
   public E get(Key key) {
     return dao.get(keyFor(getDescriptor().getPartitionStrategy(), key));
