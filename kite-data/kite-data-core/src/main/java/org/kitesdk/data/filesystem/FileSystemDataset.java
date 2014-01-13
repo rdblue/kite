@@ -184,6 +184,11 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
   }
 
   @Override
+  public View<E> with(String name) {
+    return unbounded.with(name);
+  }
+
+  @Override
   public View<E> with(String name, Object value) {
     return unbounded.with(name, value);
   }

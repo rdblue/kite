@@ -128,6 +128,12 @@ public abstract class AbstractRangeView<E> implements RangeView<E> {
   }
 
   @Override
+  public View<E> with(String name) {
+    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
+    return filter(RangePredicates.and(predicate, RangePredicates.with(comparator, name)));
+  }
+
+  @Override
   public View<E> with(String name, Object value) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.with(comparator, name, value)));

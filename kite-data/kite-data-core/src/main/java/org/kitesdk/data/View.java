@@ -67,6 +67,8 @@ public interface View<E> {
    */
   DatasetWriter<E> newWriter();
 
+  View<E> with(String name);
+
   View<E> with(String name, Object value);
 
   View<E> from(String name, Object value);

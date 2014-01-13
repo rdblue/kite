@@ -146,6 +146,49 @@ public class RangePredicates {
     }
   }
 
+  private static class FieldSetRangePredicate extends MarkerRangePredicate {
+
+    private final String name;
+
+    public FieldSetRangePredicate(MarkerComparator markerComparator, String name) {
+      super(new MarkerRange(markerComparator));
+      this.name = name;
+    }
+
+    @Override
+    public boolean apply(@Nullable Marker input) {
+      return input != null && input.has(name);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+
+      if (!(o instanceof FieldSetRangePredicate)) {
+        return false;
+      }
+
+      FieldSetRangePredicate that = (FieldSetRangePredicate) o;
+      return (Objects.equal(this.name, that.name) &&
+          Objects.equal(this.getRange(), that.getRange()));
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(name, getRange());
+    }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this)
+          .add("name", name)
+          .add("range", getRange())
+          .toString();
+    }
+  }
+
   private static class AndRangePredicate implements RangePredicate {
 
     private final RangePredicate p1;
@@ -323,6 +366,10 @@ public class RangePredicates {
 
   public static RangePredicate with(MarkerComparator comparator, String name, Object value) {
     return new EqualityRangePredicate(comparator, name, value);
+  }
+
+  public static RangePredicate with(MarkerComparator comparator, String name) {
+    return new FieldSetRangePredicate(comparator, name);
   }
 
   public static RangePredicate from(MarkerComparator comparator, String name, Object value) {

@@ -151,6 +151,8 @@ public class TestSimpleView {
         testDataset.from("month", 10).toBefore("month", 11));
 
     // with
+    assertContentEquals(Sets.newHashSet(sepEvent, octEvent, novEvent),
+        testDataset.with("month"));
     assertContentEquals(Sets.newHashSet(octEvent),
         testDataset.with("month", 10));
     assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
