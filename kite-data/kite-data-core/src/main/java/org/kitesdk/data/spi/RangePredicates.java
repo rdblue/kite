@@ -20,21 +20,6 @@ import javax.annotation.Nullable;
 
 public class RangePredicates {
 
-  private static final RangePredicate UNDEFINED_RANGE_PREDICATE = new RangePredicate() {
-    @Override
-    public boolean apply(@Nullable Marker input) {
-      return false;
-    }
-    @Override
-    public MarkerRange getRange() {
-      return MarkerRange.UNDEFINED;
-    }
-  };
-
-  public static RangePredicate undefined() {
-    return UNDEFINED_RANGE_PREDICATE;
-  }
-
   public static RangePredicate all(final MarkerComparator markerComparator) {
     return new AllRangePredicate(markerComparator);
   }

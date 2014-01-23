@@ -56,10 +56,9 @@ public abstract class AbstractRangeView<E> implements RangeView<E>, ViewBuilder<
         }
       };
     } else {
-      // use undefined predicate, which handles inappropriate calls to range methods
       this.comparator = null;
-      this.predicate = RangePredicates.undefined();
-      this.keys = null; // not used
+      this.predicate = null;
+      this.keys = null;
     }
   }
 
@@ -95,7 +94,11 @@ public abstract class AbstractRangeView<E> implements RangeView<E>, ViewBuilder<
 
   @Override
   public boolean contains(Marker marker) {
-    return predicate.apply(marker);
+    if (dataset.getDescriptor().isPartitioned()) {
+      return predicate.apply(marker);
+    } else {
+      return true;
+    }
   }
 
   @Override

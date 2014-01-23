@@ -34,8 +34,6 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public class MarkerRange {
 
-  public static final MarkerRange UNDEFINED = new Undefined();
-
   private final MarkerComparator comparator;
   private final Boundary start;
   private final Boundary end;
@@ -183,54 +181,6 @@ public class MarkerRange {
 
   public Boundary getEnd() {
     return end;
-  }
-
-  /**
-   * Placeholder range that can be used when there is no PartitionStrategy.
-   *
-   * MarkerRange requires a MarkerComparator. Without a way to compare bounds,
-   * a Range is undefined. However it is convenient to have a place-holder that
-   * correctly responds to range methods for this case.
-   */
-  private static class Undefined extends MarkerRange {
-
-    @Override
-    public boolean contains(Marker marker) {
-      return true;
-    }
-
-    @Override
-    public MarkerRange from(Marker start) {
-      throw new IllegalStateException("Undefined range: no PartitionStrategy");
-    }
-
-    @Override
-    public MarkerRange fromAfter(Marker start) {
-      throw new IllegalStateException("Undefined range: no PartitionStrategy");
-    }
-
-    @Override
-    public MarkerRange to(Marker end) {
-      throw new IllegalStateException("Undefined range: no PartitionStrategy");
-    }
-
-    @Override
-    public MarkerRange toBefore(Marker end) {
-      throw new IllegalStateException("Undefined range: no PartitionStrategy");
-    }
-
-    @Override
-    public MarkerRange of(Marker partial) {
-      throw new IllegalStateException("Undefined range: no PartitionStrategy");
-    }
-
-    @Override
-    public String toString() {
-      return Objects.toStringHelper(MarkerRange.class)
-          .add("range", "UNDEFINED")
-          .toString();
-    }
-
   }
 
   /**
