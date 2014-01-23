@@ -138,38 +138,38 @@ public class TestSimpleView {
 
     // single bound
     assertContentEquals(Sets.newHashSet(octEvent, novEvent),
-        testDataset.getViewBuilder().from("month", 10).build());
+        testDataset.from("month", 10));
     assertContentEquals(Sets.newHashSet(novEvent),
-        testDataset.getViewBuilder().fromAfter("month", 10).build());
+        testDataset.fromAfter("month", 10));
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent),
-        testDataset.getViewBuilder().to("month", 10).build());
+        testDataset.to("month", 10));
     assertContentEquals(Sets.newHashSet(sepEvent),
-        testDataset.getViewBuilder().toBefore("month", 10).build());
+        testDataset.toBefore("month", 10));
 
     // double bound
     assertContentEquals(Sets.newHashSet(octEvent),
-        testDataset.getViewBuilder().from("month", 10).toBefore("month", 11).build());
+        testDataset.from("month", 10).toBefore("month", 11));
 
     // with
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent, novEvent),
-        testDataset.getViewBuilder().with("month").build());
+        testDataset.with("month"));
     assertContentEquals(Sets.newHashSet(octEvent),
-        testDataset.getViewBuilder().with("month", 10).build());
+        testDataset.with("month", 10));
     assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
-        testDataset.getViewBuilder().with("user_id", 0).build());
+        testDataset.with("user_id", 0));
     assertContentEquals(Sets.newHashSet(sepEvent),
-        testDataset.getViewBuilder().with("user_id", 0).with("month", 9).build());
+        testDataset.with("user_id", 0).with("month", 9));
     assertContentEquals(Sets.newHashSet(sepEvent),
-        testDataset.getViewBuilder().with("month", 9).with("user_id", 0).build());
+        testDataset.with("month", 9).with("user_id", 0));
 
     // union
     assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
-        testDataset.getViewBuilder().from("month", 9).to("month", 9)
-            .union(testDataset.getViewBuilder().from("month", 11).to("month", 11).build()).build());
+        testDataset.from("month", 9).to("month", 9)
+            .union(testDataset.from("month", 11).to("month", 11)));
 
     // complement
     assertContentEquals(Sets.newHashSet(sepEvent),
-        testDataset.getViewBuilder().from("month", 10).complement().build());
+        testDataset.from("month", 10).complement());
 
   }
 

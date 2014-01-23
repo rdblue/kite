@@ -15,17 +15,8 @@
  */
 package org.kitesdk.data.filesystem;
 
-import org.kitesdk.data.Dataset;
-import org.kitesdk.data.DatasetDescriptor;
-import org.kitesdk.data.DatasetException;
-import org.kitesdk.data.DatasetReader;
-import org.kitesdk.data.DatasetWriter;
-import org.kitesdk.data.FieldPartitioner;
-import org.kitesdk.data.ViewBuilder;
+import org.kitesdk.data.*;
 import org.kitesdk.data.spi.Marker;
-import org.kitesdk.data.PartitionKey;
-import org.kitesdk.data.PartitionStrategy;
-import org.kitesdk.data.View;
 import org.kitesdk.data.impl.Accessor;
 import org.kitesdk.data.spi.AbstractDataset;
 import org.kitesdk.data.spi.PartitionListener;
@@ -180,8 +171,43 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
   }
 
   @Override
-  public ViewBuilder<E> getViewBuilder() {
-    return unbounded;
+  public FileSystemView<E> with(String name) {
+    return (FileSystemView<E>) unbounded.with(name);
+  }
+
+  @Override
+  public FileSystemView<E> with(String name, Object value) {
+    return (FileSystemView<E>) unbounded.with(name, value);
+  }
+
+  @Override
+  public FileSystemView<E> from(String name, Object value) {
+    return (FileSystemView<E>) unbounded.from(name, value);
+  }
+
+  @Override
+  public FileSystemView<E> fromAfter(String name, Object value) {
+    return (FileSystemView<E>) unbounded.fromAfter(name, value);
+  }
+
+  @Override
+  public FileSystemView<E> to(String name, Object value) {
+    return (FileSystemView<E>) unbounded.to(name, value);
+  }
+
+  @Override
+  public FileSystemView<E> toBefore(String name, Object value) {
+    return (FileSystemView<E>) unbounded.toBefore(name, value);
+  }
+
+  @Override
+  public FileSystemView<E> union(View<E> other) {
+    return (FileSystemView<E>) unbounded.union(other);
+  }
+
+  @Override
+  public FileSystemView<E> complement() {
+    return (FileSystemView<E>) unbounded.complement();
   }
 
   @Override

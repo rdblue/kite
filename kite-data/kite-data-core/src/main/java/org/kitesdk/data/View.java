@@ -117,6 +117,4 @@ public interface View<E> {
    */
   Iterable<View<E>> getCoveringPartitions();
 
-  ViewBuilder<E> getViewBuilder();
-
 }

@@ -21,7 +21,6 @@ import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionKey;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.View;
-import org.kitesdk.data.ViewBuilder;
 import org.kitesdk.data.spi.AbstractRangeView;
 import org.kitesdk.data.spi.StorageKey;
 import org.kitesdk.data.spi.Marker;
@@ -93,11 +92,6 @@ class DaoView<E> extends AbstractRangeView<E> {
         return wrappedWriter.isOpen();
       }
     };
-  }
-
-  @Override
-  public ViewBuilder<E> getViewBuilder() {
-    return this;
   }
 
   @Override

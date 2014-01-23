@@ -20,7 +20,6 @@ import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.Key;
-import org.kitesdk.data.ViewBuilder;
 import org.kitesdk.data.spi.Marker;
 import org.kitesdk.data.PartitionKey;
 import org.kitesdk.data.PartitionStrategy;
@@ -128,8 +127,43 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
   }
 
   @Override
-  public ViewBuilder<E> getViewBuilder() {
-    return unbounded;
+  public DaoView<E> with(String name) {
+    return (DaoView<E>) unbounded.with(name);
+  }
+
+  @Override
+  public DaoView<E> with(String name, Object value) {
+    return (DaoView<E>) unbounded.with(name, value);
+  }
+
+  @Override
+  public DaoView<E> from(String name, Object value) {
+    return (DaoView<E>) unbounded.from(name, value);
+  }
+
+  @Override
+  public DaoView<E> fromAfter(String name, Object value) {
+    return (DaoView<E>) unbounded.fromAfter(name, value);
+  }
+
+  @Override
+  public DaoView<E> to(String name, Object value) {
+    return (DaoView<E>) unbounded.to(name, value);
+  }
+
+  @Override
+  public DaoView<E> toBefore(String name, Object value) {
+    return (DaoView<E>) unbounded.toBefore(name, value);
+  }
+
+  @Override
+  public DaoView<E> union(View<E> other) {
+    return (DaoView<E>) unbounded.union(other);
+  }
+
+  @Override
+  public DaoView<E> complement() {
+    return (DaoView<E>) unbounded.complement();
   }
 
   @Override

@@ -21,10 +21,8 @@ import org.kitesdk.data.DatasetIOException;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.View;
-import org.kitesdk.data.ViewBuilder;
 import org.kitesdk.data.spi.AbstractRangeView;
 import org.kitesdk.data.spi.StorageKey;
-import org.kitesdk.data.spi.MarkerRange;
 import org.kitesdk.data.spi.RangePredicate;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
@@ -77,11 +75,6 @@ class FileSystemView<E> extends AbstractRangeView<E> {
     } else {
       return FileSystemWriters.newFileWriter(fs, root, dataset.getDescriptor());
     }
-  }
-
-  @Override
-  public ViewBuilder<E> getViewBuilder() {
-    return this;
   }
 
   @Override

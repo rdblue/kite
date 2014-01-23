@@ -15,23 +15,21 @@
  */
 package org.kitesdk.data;
 
-public interface ViewBuilder<E> {
+public interface RefineableView<E> extends View<E> {
 
-  ViewBuilder<E> with(String name);
+  RefineableView<E> with(String name);
 
-  ViewBuilder<E> with(String name, Object value);
+  RefineableView<E> with(String name, Object value);
 
-  ViewBuilder<E> from(String name, Object value);
+  RefineableView<E> from(String name, Object value);
 
-  ViewBuilder<E> fromAfter(String name, Object value);
+  RefineableView<E> fromAfter(String name, Object value);
 
-  ViewBuilder<E> to(String name, Object value);
+  RefineableView<E> to(String name, Object value);
 
-  ViewBuilder<E> toBefore(String name, Object value);
+  RefineableView<E> toBefore(String name, Object value);
 
-  ViewBuilder<E> union(View<E> other);
+  RefineableView<E> union(View<E> other);
 
-  ViewBuilder<E> complement();
-
-  View<E> build();
+  RefineableView<E> complement();
 }

@@ -16,10 +16,11 @@
 
 package org.kitesdk.data.spi;
 
+import org.kitesdk.data.RefineableView;
 import org.kitesdk.data.View;
 
 // TODO: delete this class since markers can be replaced by the single-field variants, or Tuples
-interface RangeView<E> extends View<E> {
+interface RangeView<E> extends RefineableView<E> {
 
   /**
    * Returns whether a {@link Marker} is in this {@code View}

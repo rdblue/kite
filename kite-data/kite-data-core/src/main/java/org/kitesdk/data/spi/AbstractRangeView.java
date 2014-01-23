@@ -23,7 +23,6 @@ import com.google.common.base.Objects;
 
 import javax.annotation.concurrent.Immutable;
 import org.kitesdk.data.View;
-import org.kitesdk.data.ViewBuilder;
 
 /**
  * A common View base class to simplify implementations of Views created from ranges.
@@ -34,7 +33,7 @@ import org.kitesdk.data.ViewBuilder;
  * @since 0.9.0
  */
 @Immutable
-public abstract class AbstractRangeView<E> implements RangeView<E>, ViewBuilder<E> {
+public abstract class AbstractRangeView<E> implements RangeView<E> {
 
   protected final Dataset<E> dataset;
   protected final MarkerComparator comparator;
@@ -181,11 +180,6 @@ public abstract class AbstractRangeView<E> implements RangeView<E>, ViewBuilder<
   public AbstractRangeView<E> complement() {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.not(predicate));
-  }
-
-  @Override
-  public AbstractRangeView<E> build() {
-    return this;
   }
 
   @Override
