@@ -35,7 +35,7 @@ import org.kitesdk.data.View;
  * @since 0.9.0
  */
 @Immutable
-public abstract class AbstractRangeView<E> implements RefineableView<E> {
+public abstract class AbstractRefineableView<E> implements RefineableView<E> {
 
   protected final Dataset<E> dataset;
   protected final MarkerComparator comparator;
@@ -44,7 +44,7 @@ public abstract class AbstractRangeView<E> implements RefineableView<E> {
   // This class is Immutable and must be thread-safe
   protected final ThreadLocal<StorageKey> keys;
 
-  protected AbstractRangeView(Dataset<E> dataset) {
+  protected AbstractRefineableView(Dataset<E> dataset) {
     this.dataset = dataset;
     final DatasetDescriptor descriptor = dataset.getDescriptor();
     if (descriptor.isPartitioned()) {
@@ -63,7 +63,7 @@ public abstract class AbstractRangeView<E> implements RefineableView<E> {
     }
   }
 
-  protected AbstractRangeView(AbstractRangeView<E> view, RangePredicate predicate) {
+  protected AbstractRefineableView(AbstractRefineableView<E> view, RangePredicate predicate) {
     this.dataset = view.dataset;
     this.comparator = view.comparator;
     this.predicate = predicate;
@@ -71,7 +71,7 @@ public abstract class AbstractRangeView<E> implements RefineableView<E> {
     this.keys = view.keys;
   }
 
-  protected abstract AbstractRangeView<E> filter(RangePredicate p);
+  protected abstract AbstractRefineableView<E> filter(RangePredicate p);
 
   @Override
   public Dataset<E> getDataset() {
@@ -102,104 +102,104 @@ public abstract class AbstractRangeView<E> implements RefineableView<E> {
     }
   }
 
-  private AbstractRangeView<E> from(Marker start) {
+  private AbstractRefineableView<E> from(Marker start) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.from(comparator, start)));
   }
 
-  private AbstractRangeView<E> fromAfter(Marker start) {
+  private AbstractRefineableView<E> fromAfter(Marker start) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.fromAfter(comparator,
         start)));
   }
 
-  private AbstractRangeView<E> to(Marker end) {
+  private AbstractRefineableView<E> to(Marker end) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.to(comparator, end)));
   }
 
-  private AbstractRangeView<E> toBefore(Marker end) {
+  private AbstractRefineableView<E> toBefore(Marker end) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.toBefore(comparator, end)));
   }
 
-  public AbstractRangeView<E> of(Marker partial) {
+  public AbstractRefineableView<E> of(Marker partial) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.of(comparator, partial)));
   }
 
   @Override
-  public AbstractRangeView<E> with(String name) {
+  public AbstractRefineableView<E> with(String name) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.with(comparator, name)));
   }
 
   @Override
-  public AbstractRangeView<E> with(String name, Object value) {
+  public AbstractRefineableView<E> with(String name, Object value) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.with(comparator, name, value)));
   }
 
   @Override
-  public AbstractRangeView<E> from(String name, Object value) {
+  public AbstractRefineableView<E> from(String name, Object value) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.from(comparator, name, value)));
   }
 
   @Override
-  public AbstractRangeView<E> from(String[] names, Object... values) {
+  public AbstractRefineableView<E> from(String[] names, Object... values) {
     return from(new Marker.ImmutableMarker(names, values));
   }
 
   @Override
-  public AbstractRangeView<E> fromAfter(String name, Object value) {
+  public AbstractRefineableView<E> fromAfter(String name, Object value) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.fromAfter(comparator, name, value)));
   }
 
   @Override
-  public AbstractRangeView<E> fromAfter(String[] names, Object... values) {
+  public AbstractRefineableView<E> fromAfter(String[] names, Object... values) {
     return fromAfter(new Marker.ImmutableMarker(names, values));
   }
 
   @Override
-  public AbstractRangeView<E> to(String name, Object value) {
+  public AbstractRefineableView<E> to(String name, Object value) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.to(comparator, name, value)));
   }
 
   @Override
-  public AbstractRangeView<E> to(String[] names, Object... values) {
+  public AbstractRefineableView<E> to(String[] names, Object... values) {
     return to(new Marker.ImmutableMarker(names, values));
   }
 
   @Override
-  public AbstractRangeView<E> toBefore(String name, Object value) {
+  public AbstractRefineableView<E> toBefore(String name, Object value) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.and(predicate, RangePredicates.toBefore(comparator, name, value)));
   }
 
   @Override
-  public AbstractRangeView<E> toBefore(String[] names, Object... values) {
+  public AbstractRefineableView<E> toBefore(String[] names, Object... values) {
     return toBefore(new Marker.ImmutableMarker(names, values));
   }
 
   @Override
-  public AbstractRangeView<E> of(String[] names, Object... values) {
+  public AbstractRefineableView<E> of(String[] names, Object... values) {
     return of(new Marker.ImmutableMarker(names, values));
   }
 
   @Override
-  public AbstractRangeView<E> union(View<E> other) {
+  public AbstractRefineableView<E> union(View<E> other) {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    Preconditions.checkArgument(other instanceof AbstractRangeView,
-        "View must be an instance of AbstractRangeView: " + other);
-    AbstractRangeView<E> abstractOther = (AbstractRangeView<E>) other;
+    Preconditions.checkArgument(other instanceof AbstractRefineableView,
+        "View must be an instance of AbstractRefineableView: " + other);
+    AbstractRefineableView<E> abstractOther = (AbstractRefineableView<E>) other;
     return filter(RangePredicates.or(predicate, abstractOther.predicate));
   }
 
   @Override
-  public AbstractRangeView<E> complement() {
+  public AbstractRefineableView<E> complement() {
     Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
     return filter(RangePredicates.not(predicate));
   }
@@ -214,7 +214,7 @@ public abstract class AbstractRangeView<E> implements RefineableView<E> {
       return false;
     }
 
-    AbstractRangeView that = (AbstractRangeView) o;
+    AbstractRefineableView that = (AbstractRefineableView) o;
     return (Objects.equal(this.dataset, that.dataset) &&
         Objects.equal(this.predicate, that.predicate));
   }

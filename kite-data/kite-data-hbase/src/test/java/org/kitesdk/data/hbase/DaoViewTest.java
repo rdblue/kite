@@ -26,7 +26,7 @@ import org.kitesdk.data.hbase.avro.entities.TestEntity;
 import org.kitesdk.data.hbase.avro.entities.TestEnum;
 import org.kitesdk.data.hbase.testing.HBaseTestUtils;
 
-import org.kitesdk.data.spi.AbstractRangeView;
+import org.kitesdk.data.spi.AbstractRefineableView;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -90,7 +90,7 @@ public class DaoViewTest {
   public void testRange() {
     populateTestEntities(10);
 
-    final AbstractRangeView<TestEntity> range = new DaoView<TestEntity>(ds)
+    final AbstractRefineableView<TestEntity> range = new DaoView<TestEntity>(ds)
             .fromAfter(NAMES, "1", "1").to(NAMES, "9", "9");
 
     // Test marker range checks
@@ -132,7 +132,7 @@ public class DaoViewTest {
   public void testLimitedReader() {
     populateTestEntities(10);
 
-    AbstractRangeView<TestEntity> range = new DaoView<TestEntity>(ds)
+    AbstractRefineableView<TestEntity> range = new DaoView<TestEntity>(ds)
         .from(NAMES, "0", "0").to(NAMES, "9", "9");
     validRange(range, 0, 10);
 

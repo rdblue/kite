@@ -21,7 +21,7 @@ import org.kitesdk.data.DatasetIOException;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.View;
-import org.kitesdk.data.spi.AbstractRangeView;
+import org.kitesdk.data.spi.AbstractRefineableView;
 import org.kitesdk.data.spi.StorageKey;
 import org.kitesdk.data.spi.RangePredicate;
 import com.google.common.base.Function;
@@ -40,7 +40,7 @@ import java.io.IOException;
  * @param <E> The type of records read and written by this view.
  */
 @Immutable
-class FileSystemView<E> extends AbstractRangeView<E> {
+class FileSystemView<E> extends AbstractRefineableView<E> {
 
   private final FileSystem fs;
   private final Path root;
