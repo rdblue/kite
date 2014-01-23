@@ -19,6 +19,7 @@ package org.kitesdk.data.spi;
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
+import org.kitesdk.data.RefineableView;
 import org.kitesdk.data.View;
 import javax.annotation.concurrent.Immutable;
 
@@ -29,7 +30,7 @@ import javax.annotation.concurrent.Immutable;
  * @since 0.9.0
  */
 @Immutable
-public abstract class AbstractDataset<E> implements Dataset<E>, RangeView<E> {
+public abstract class AbstractDataset<E> implements Dataset<E>, RefineableView<E> {
 
   @Override
   public Dataset<E> getDataset() {
@@ -61,34 +62,9 @@ public abstract class AbstractDataset<E> implements Dataset<E>, RangeView<E> {
   }
 
   @Override
-  public boolean contains(Marker marker) {
-    // A Dataset contains all PartitionKeys contained by any Marker
+  public boolean contains(String[] names, Object... values) {
+    // A Dataset contains all PartitionKeys, only sub-views have to check
     return true;
-  }
-
-  @Override
-  public AbstractRangeView<E> from(Marker start) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  @Override
-  public AbstractRangeView<E> fromAfter(Marker start) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  @Override
-  public AbstractRangeView<E> to(Marker end) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  @Override
-  public AbstractRangeView<E> toBefore(Marker end) {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
-
-  @Override
-  public AbstractRangeView<E> of(Marker partial) {
-    throw new UnsupportedOperationException("Not supported yet.");
   }
 
   @Override

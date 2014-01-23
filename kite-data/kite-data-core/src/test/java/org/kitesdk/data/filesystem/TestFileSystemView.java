@@ -21,8 +21,6 @@ import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.spi.TestRangeViews;
 import org.kitesdk.data.View;
 import org.kitesdk.data.event.StandardEvent;
-import org.kitesdk.data.spi.StorageKey;
-import com.google.common.collect.Sets;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.junit.After;
@@ -31,7 +29,10 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Set;
+import java.util.Iterator;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class TestFileSystemView extends TestRangeViews {
 
@@ -69,13 +70,27 @@ public class TestFileSystemView extends TestRangeViews {
       writer.close();
     }
 
-    final Set<View<StandardEvent>> expected = (Set) Sets.newHashSet(
-        dataset.of(new StorageKey.Builder(strategy).buildFrom(sepEvent)),
-        dataset.of(new StorageKey.Builder(strategy).buildFrom(octEvent)),
-        dataset.of(new StorageKey.Builder(strategy).buildFrom(novEvent)));
+    Iterator<View> coveringPartitions = dataset.getCoveringPartitions().iterator();
 
-    Assert.assertEquals("Covering partitions should match",
-        expected, Sets.newHashSet(dataset.getCoveringPartitions()));
+    assertTrue(coveringPartitions.hasNext());
+    View v1 = coveringPartitions.next();
+    assertTrue(v1.contains(TIMESTAMP, sepEvent.getTimestamp()));
+    assertFalse(v1.contains(TIMESTAMP, octEvent.getTimestamp()));
+    assertFalse(v1.contains(TIMESTAMP, novEvent.getTimestamp()));
+
+    assertTrue(coveringPartitions.hasNext());
+    View v2 = coveringPartitions.next();
+    assertFalse(v2.contains(TIMESTAMP, sepEvent.getTimestamp()));
+    assertTrue(v2.contains(TIMESTAMP, octEvent.getTimestamp()));
+    assertFalse(v2.contains(TIMESTAMP, novEvent.getTimestamp()));
+
+    assertTrue(coveringPartitions.hasNext());
+    View v3 = coveringPartitions.next();
+    assertFalse(v3.contains(TIMESTAMP, sepEvent.getTimestamp()));
+    assertFalse(v3.contains(TIMESTAMP, octEvent.getTimestamp()));
+    assertTrue(v3.contains(TIMESTAMP, novEvent.getTimestamp()));
+
+    assertFalse(coveringPartitions.hasNext());
   }
 
   @Test
@@ -105,36 +120,36 @@ public class TestFileSystemView extends TestRangeViews {
     assertDirectoriesExist(fs, root, y2013, sep, sep12, oct, oct12, nov, nov11);
 
     Assert.assertFalse("Delete should return false to indicate no changes",
-        view.from(newMarker(2013, 6)).toBefore(newMarker(2013, 9))
+        view.from(YM, 2013, 6).toBefore(YM, 2013, 9)
             .deleteAll());
     Assert.assertFalse("Delete should return false to indicate no changes",
-        view.from(newMarker(2013, 11, 12)).deleteAll());
+        view.from(YMD, 2013, 11, 12).deleteAll());
 
     // delete everything up to September
-    Assert.assertTrue("Delete should return true to indicate FS changed",
-        view.to(newMarker(2013, 9)).deleteAll());
+    assertTrue("Delete should return true to indicate FS changed",
+        view.to(YM, 2013, 9).deleteAll());
     assertDirectoriesDoNotExist(fs, sep12, sep);
     assertDirectoriesExist(fs, root, y2013, oct, oct12, nov, nov11);
     Assert.assertFalse("Delete should return false to indicate no changes",
-        view.to(newMarker(2013, 9)).deleteAll());
+        view.to(YM, 2013, 9).deleteAll());
 
     // delete November 11 and later
-    Assert.assertTrue("Delete should return true to indicate FS changed",
-        view.from(newMarker(2013, 11, 11)).to(newMarker(2013, 11, 12))
+    assertTrue("Delete should return true to indicate FS changed",
+        view.from(YMD, 2013, 11, 11).to(YMD, 2013, 11, 12)
             .deleteAll());
     assertDirectoriesDoNotExist(fs, sep12, sep, nov11, nov);
     assertDirectoriesExist(fs, root, y2013, oct, oct12);
     Assert.assertFalse("Delete should return false to indicate no changes",
-        view.from(newMarker(2013, 11, 11)).to(newMarker(2013, 11, 12))
+        view.from(YMD, 2013, 11, 11).to(YMD, 2013, 11, 12)
             .deleteAll());
 
     // delete October and the 2013 directory
-    Assert.assertTrue("Delete should return true to indicate FS changed",
-        view.of(newMarker(2013, 10, 12)).deleteAll());
+    assertTrue("Delete should return true to indicate FS changed",
+        view.of(YMD, 2013, 10, 12).deleteAll());
     assertDirectoriesDoNotExist(fs, y2013, sep12, sep, oct12, oct, nov11, nov);
     assertDirectoriesExist(fs, root);
     Assert.assertFalse("Delete should return false to indicate no changes",
-        view.of(newMarker(2013, 10, 12)).deleteAll());
+        view.of(YMD, 2013, 10, 12).deleteAll());
 
     Assert.assertFalse("Delete should return false to indicate no changes",
         view.deleteAll());
@@ -143,7 +158,7 @@ public class TestFileSystemView extends TestRangeViews {
   public static void assertDirectoriesExist(FileSystem fs, Path... dirs)
       throws IOException {
     for (Path path : dirs) {
-      Assert.assertTrue("Directory should exist: " + path,
+      assertTrue("Directory should exist: " + path,
           fs.exists(path) && fs.isDirectory(path));
     }
   }
@@ -151,7 +166,7 @@ public class TestFileSystemView extends TestRangeViews {
   public static void assertDirectoriesDoNotExist(FileSystem fs, Path... dirs)
       throws IOException {
     for (Path path : dirs) {
-      Assert.assertTrue("Directory should not exist: " + path,
+      assertTrue("Directory should not exist: " + path,
           !fs.exists(path));
     }
   }

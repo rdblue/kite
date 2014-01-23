@@ -102,31 +102,6 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
   }
 
   @Override
-  public DaoView<E> from(Marker start) {
-    return (DaoView<E>) unbounded.from(start);
-  }
-
-  @Override
-  public DaoView<E> fromAfter(Marker start) {
-    return (DaoView<E>) unbounded.fromAfter(start);
-  }
-
-  @Override
-  public DaoView<E> to(Marker end) {
-    return (DaoView<E>) unbounded.to(end);
-  }
-
-  @Override
-  public DaoView<E> toBefore(Marker end) {
-    return (DaoView<E>) unbounded.toBefore(end);
-  }
-
-  @Override
-  public DaoView<E> of(Marker partial) {
-    return (DaoView<E>) unbounded.of(partial);
-  }
-
-  @Override
   public DaoView<E> with(String name) {
     return (DaoView<E>) unbounded.with(name);
   }
@@ -142,8 +117,18 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
   }
 
   @Override
+  public DaoView<E> from(String[] names, Object... values) {
+    return (DaoView<E>) unbounded.from(names, values);
+  }
+
+  @Override
   public DaoView<E> fromAfter(String name, Object value) {
     return (DaoView<E>) unbounded.fromAfter(name, value);
+  }
+
+  @Override
+  public DaoView<E> fromAfter(String[] names, Object... values) {
+    return (DaoView<E>) unbounded.fromAfter(names, values);
   }
 
   @Override
@@ -152,8 +137,23 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
   }
 
   @Override
+  public DaoView<E> to(String[] names, Object... values) {
+    return (DaoView<E>) unbounded.to(names, values);
+  }
+
+  @Override
   public DaoView<E> toBefore(String name, Object value) {
     return (DaoView<E>) unbounded.toBefore(name, value);
+  }
+
+  @Override
+  public DaoView<E> toBefore(String[] names, Object... values) {
+    return (DaoView<E>) unbounded.toBefore(names, values);
+  }
+
+  @Override
+  public DaoView<E> of(String[] names, Object... values) {
+    return (DaoView<E>) unbounded.of(names, values);
   }
 
   @Override

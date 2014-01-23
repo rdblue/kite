@@ -134,6 +134,13 @@ public abstract class Marker {
       this.values = ImmutableMap.copyOf(content);
     }
 
+    public ImmutableMarker(String[] names, Object[] vals) {
+      this.values = Maps.newHashMap();
+      for (int i = 0; i < names.length; i++) {
+        values.put(names[i], vals[i]);
+      }
+    }
+
     @Override
     public boolean has(String name) {
       return values.containsKey(name);

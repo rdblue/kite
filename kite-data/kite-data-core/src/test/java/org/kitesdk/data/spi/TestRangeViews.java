@@ -16,15 +16,7 @@
 
 package org.kitesdk.data.spi;
 
-import org.kitesdk.data.Dataset;
-import org.kitesdk.data.DatasetDescriptor;
-import org.kitesdk.data.DatasetReader;
-import org.kitesdk.data.DatasetRepository;
-import org.kitesdk.data.DatasetWriter;
-import org.kitesdk.data.MiniDFSTest;
-import org.kitesdk.data.PartitionStrategy;
-import org.kitesdk.data.TestHelpers;
-import org.kitesdk.data.View;
+import org.kitesdk.data.*;
 import org.kitesdk.data.event.StandardEvent;
 import com.google.common.collect.Sets;
 import java.util.Arrays;
@@ -46,17 +38,19 @@ public abstract class TestRangeViews extends MiniDFSTest {
   private static final Logger LOG =
       LoggerFactory.getLogger(TestRangeViews.class);
 
-  protected static final Marker october = newMarker(2013, 10);
-  protected static final Marker now = new Marker
-      .Builder("timestamp", System.currentTimeMillis()).build();
-  protected static final Marker empty = new Marker.Builder().build();
+  protected static final String[] Y = new String[] { "year" };
+  protected static final String[] YM = new String[] { "year", "month" };
+  protected static final String[] YMD = new String[] { "year", "month", "day" };
+  protected static final String[] TIMESTAMP = new String[] { "timestamp" };
+  protected static final String[] EMPTY = new String[0];
+  protected static final long now = System.currentTimeMillis();
   protected static final StandardEvent event = StandardEvent.newBuilder()
       .setEventInitiator("TestRangeViews")
       .setEventName("TestEvent")
       .setUserId(0)
       .setSessionId("session-0")
       .setIp("localhost")
-      .setTimestamp(System.currentTimeMillis() + 35405168l)
+      .setTimestamp(now + 35405168l)
       .build();
   protected static final StandardEvent sepEvent = StandardEvent
       .newBuilder(event)
@@ -96,7 +90,7 @@ public abstract class TestRangeViews extends MiniDFSTest {
   protected PartitionStrategy strategy = null;
   protected DatasetDescriptor testDescriptor = null;
   protected Dataset<StandardEvent> testDataset = null;
-  protected RangeView<StandardEvent> unbounded = null;
+  protected RefineableView<StandardEvent> unbounded = null;
 
   @Before
   public void setup() throws Exception {
@@ -116,31 +110,31 @@ public abstract class TestRangeViews extends MiniDFSTest {
         .partitionStrategy(strategy)
         .build();
     this.testDataset = repo.create("test", testDescriptor);
-    this.unbounded = (RangeView<StandardEvent>) testDataset;
+    this.unbounded = (RefineableView<StandardEvent>) testDataset;
   }
 
   @Test public abstract void testCoveringPartitions();
 
   @Test
   public void testRange() {
-    final RangeView<StandardEvent> range = unbounded
-        .from(october).toBefore(newMarker(2013, 11, 14));
+    final RefineableView<StandardEvent> range = unbounded
+        .from(YM, 2013, 10).toBefore(YMD, 2013, 11, 14);
 
-    Assert.assertTrue("Should contain Oct", range.contains(october));
+    Assert.assertTrue("Should contain Oct", range.contains(YM, 2013, 10));
     Assert.assertTrue("Should contain day in Oct",
-        range.contains(newMarker(2013, 10, 5)));
+        range.contains(YMD, 2013, 10, 5));
     Assert.assertFalse("Should not contain year",
-        range.contains(newMarker(2013)));
+        range.contains(Y, 2013));
     Assert.assertFalse("Should not contain previous month",
-        range.contains(newMarker(2013, 9)));
+        range.contains(YM, 2013, 9));
     Assert.assertFalse("Should not contain next month",
-        range.contains(newMarker(2013, 11)));
+        range.contains(YM, 2013, 11));
     Assert.assertFalse("Should not contain previous day",
-        range.contains(newMarker(2013, 9, 30)));
+        range.contains(YMD, 2013, 9, 30));
     Assert.assertTrue("Should contain Nov 11",
-        range.contains(newMarker(2013, 11, 11)));
+        range.contains(YMD, 2013, 11, 11));
     Assert.assertFalse("Should not contain Nov 14",
-        range.contains(newMarker(2013, 11, 14)));
+        range.contains(YMD, 2013, 11, 14));
 
     // test events
     Assert.assertFalse("Should not contain older event",
@@ -181,57 +175,57 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // single bound
     assertContentEquals(Sets.newHashSet(octEvent, novEvent),
-        unbounded.from(newMarker(2013, 10, 12)));
+        unbounded.from(YMD, 2013, 10, 12));
     assertContentEquals(Sets.newHashSet(novEvent),
-        unbounded.fromAfter(newMarker(2013, 10, 12)));
+        unbounded.fromAfter(YMD, 2013, 10, 12));
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent),
-        unbounded.to(newMarker(2013, 10, 12)));
+        unbounded.to(YMD, 2013, 10, 12));
     assertContentEquals(Sets.newHashSet(sepEvent),
-        unbounded.toBefore(newMarker(2013, 10, 12)));
+        unbounded.toBefore(YMD, 2013, 10, 12));
 
     // in
     assertContentEquals(Sets.<StandardEvent>newHashSet(),
-        unbounded.of(newMarker(2012)));
+        unbounded.of(Y, 2012));
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent, novEvent),
-        unbounded.of(newMarker(2013)));
+        unbounded.of(Y, 2013));
     assertContentEquals(Sets.<StandardEvent>newHashSet(),
-        unbounded.of(newMarker(2012, 10)));
+        unbounded.of(YM, 2012, 10));
     assertContentEquals(Sets.newHashSet(octEvent),
-        unbounded.of(newMarker(2013, 10)));
+        unbounded.of(YM, 2013, 10));
     assertContentEquals(Sets.newHashSet(octEvent),
-        unbounded.of(newMarker(2013, 10, 12)));
+        unbounded.of(YMD, 2013, 10, 12));
     assertContentEquals(Sets.<StandardEvent>newHashSet(),
-        unbounded.of(newMarker(2013, 10, 11)));
+        unbounded.of(YMD, 2013, 10, 11));
 
     // double bound
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent, novEvent),
-        unbounded.from(newMarker(2013, 9)).to(newMarker(2013, 11)));
+        unbounded.from(YM, 2013, 9).to(YM, 2013, 11));
     assertContentEquals(Sets.newHashSet(octEvent, novEvent),
-        unbounded.from(newMarker(2013, 9, 22)).to(newMarker(2013, 11)));
+        unbounded.from(YMD, 2013, 9, 22).to(YM, 2013, 11));
     assertContentEquals(Sets.newHashSet(octEvent, novEvent),
-        unbounded.fromAfter(newMarker(2013, 9, 22)).to(newMarker(2013, 11)));
+        unbounded.fromAfter(YMD, 2013, 9, 22).to(YM, 2013, 11));
     assertContentEquals(Sets.newHashSet(octEvent),
-        unbounded.from(newMarker(2013, 9, 22)).toBefore(newMarker(2013, 11)));
+        unbounded.from(YMD, 2013, 9, 22).toBefore(YM, 2013, 11));
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent),
-        unbounded.from(newMarker(2013, 9)).to(newMarker(2013, 11, 4)));
+        unbounded.from(YM, 2013, 9).to(YMD, 2013, 11, 4));
     assertContentEquals(Sets.newHashSet(octEvent),
-        unbounded.fromAfter(newMarker(2013, 9)).to(newMarker(2013, 11, 4)));
+        unbounded.fromAfter(YM, 2013, 9).to(YMD, 2013, 11, 4));
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent),
-        unbounded.from(newMarker(2013, 9)).toBefore(newMarker(2013, 11, 4)));
+        unbounded.from(YM, 2013, 9).toBefore(YMD, 2013, 11, 4));
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent, novEvent),
-        unbounded.from(newMarker(2013, 9, 1)).to(newMarker(2013, 11, 31)));
+        unbounded.from(YMD, 2013, 9, 1).to(YMD, 2013, 11, 31));
     assertContentEquals(Sets.newHashSet(octEvent, novEvent),
-        unbounded.fromAfter(newMarker(2013, 9, 12)).to(newMarker(2013, 11, 31)));
+        unbounded.fromAfter(YMD, 2013, 9, 12).to(YMD, 2013, 11, 31));
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent),
-        unbounded.from(newMarker(2013, 9, 12)).toBefore(newMarker(2013, 11, 11)));
+        unbounded.from(YMD, 2013, 9, 12).toBefore(YMD, 2013, 11, 11));
     assertContentEquals(Sets.<StandardEvent>newHashSet(),
-        unbounded.from(newMarker(2012)).to(newMarker(2013, 8)));
+        unbounded.from(Y, 2012).to(YM, 2013, 8));
   }
 
   @Test
   public void testLimitedWriter() {
-    final RangeView<StandardEvent> range = unbounded
-        .from(october).toBefore(newMarker(2013, 11, 14));
+    final RefineableView<StandardEvent> range = unbounded
+        .from(YM, 2013, 10).toBefore(YMD, 2013, 11, 14);
 
     DatasetWriter<StandardEvent> writer = range.newWriter();
     try {
@@ -273,21 +267,21 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
   @Test
   public void testFromView() {
-    final RangeView<StandardEvent> fromOctober = unbounded.from(october);
+    final RefineableView<StandardEvent> fromOctober = unbounded.from(YM, 2013, 10);
 
-    Assert.assertTrue("Should contain partial", fromOctober.contains(october));
+    Assert.assertTrue("Should contain partial", fromOctober.contains(YM, 2013, 10));
     Assert.assertTrue("Should contain days",
-        fromOctober.contains(newMarker(2013, 10, 5)));
+        fromOctober.contains(YMD, 2013, 10, 5));
     Assert.assertFalse("Should not contain year",
-        fromOctober.contains(newMarker(2013)));
+        fromOctober.contains(Y, 2013));
     Assert.assertFalse("Should not contain previous month",
-        fromOctober.contains(newMarker(2013, 9)));
+        fromOctober.contains(YM, 2013, 9));
     Assert.assertTrue("Should contain next month",
-        fromOctober.contains(newMarker(2013, 11)));
+        fromOctober.contains(YM, 2013, 11));
     Assert.assertFalse("Should not contain previous day",
-        fromOctober.contains(newMarker(2013, 9, 30)));
+        fromOctober.contains(YMD, 2013, 9, 30));
     Assert.assertTrue("Should contain next day",
-        fromOctober.contains(newMarker(2013, 11, 1)));
+        fromOctober.contains(YMD, 2013, 11, 1));
 
     // test events
     Assert.assertFalse("Should not contain older event",
@@ -301,77 +295,77 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // test limiting to a sub-view with contained markers
     Assert.assertNotNull("in(contained marker) should succeed",
-        fromOctober.of(newMarker(2013, 10, 5)));
+        fromOctober.of(YMD, 2013, 10, 5));
     Assert.assertNotNull("from(contained marker) should succeed",
-        fromOctober.of(newMarker(2013, 10, 6)));
+        fromOctober.of(YMD, 2013, 10, 6));
     Assert.assertNotNull("fromAfter(contained marker) should succeed",
-        fromOctober.of(newMarker(2013, 10, 4)));
+        fromOctober.of(YMD, 2013, 10, 4));
     Assert.assertNotNull("to(contained marker) should succeed",
-        fromOctober.to(newMarker(2013, 10, 21)));
+        fromOctober.to(YMD, 2013, 10, 21));
     Assert.assertNotNull("toBefore(contained marker) should succeed",
-        fromOctober.toBefore(newMarker(2013, 10, 22)));
+        fromOctober.toBefore(YMD, 2013, 10, 22));
 
     // test limiting to a sub-view with before markers
     TestHelpers.assertThrows("in(before marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        fromOctober.of(newMarker(2013, 9, 5));
+        fromOctober.of(YMD, 2013, 9, 5);
       }
     });
     Assert.assertNotNull("from(before marker) should succeed",
-        fromOctober.from(newMarker(2013, 9, 6)));
+        fromOctober.from(YMD, 2013, 9, 6));
     Assert.assertNotNull("fromAfter(before marker) should succeed",
-        fromOctober.fromAfter(newMarker(2013, 9, 18)));
+        fromOctober.fromAfter(YMD, 2013, 9, 18));
     TestHelpers.assertThrows("to(before marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        fromOctober.to(newMarker(2013, 9, 21));
+        fromOctober.to(YMD, 2013, 9, 21);
       }
     });
     TestHelpers.assertThrows("toBefore(before marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        fromOctober.toBefore(newMarker(2013, 9, 22));
+        fromOctober.toBefore(YMD, 2013, 9, 22);
       }
     });
 
     // test limiting to a sub-view with after markers
     Assert.assertNotNull("in(after marker) should succeed",
-        fromOctober.of(newMarker(2013, 11, 19)));
+        fromOctober.of(YMD, 2013, 11, 19));
     Assert.assertNotNull("from(after marker) should succeed",
-        fromOctober.from(newMarker(2013, 11, 1)));
+        fromOctober.from(YMD, 2013, 11, 1));
     Assert.assertNotNull("fromAfter(after marker) should succeed",
-        fromOctober.fromAfter(newMarker(2013, 11, 1)));
+        fromOctober.fromAfter(YMD, 2013, 11, 1));
     Assert.assertNotNull("to(after marker) should succeed",
-        fromOctober.to(newMarker(2013, 11)));
+        fromOctober.to(YM, 2013, 11));
     Assert.assertNotNull("toBefore(after marker) should succeed",
-        fromOctober.toBefore(newMarker(2013, 11, 4)));
+        fromOctober.toBefore(YMD, 2013, 11, 4));
 
     // test limiting to a sub-view with a containing
     Assert.assertNotNull("in(not contained) should succeed",
-        fromOctober.of(newMarker(2013)));
+        fromOctober.of(Y, 2013));
   }
 
   @Test
   public void testFromAfterView() {
-    final RangeView<StandardEvent> afterOct = unbounded.fromAfter(october);
+    final RefineableView<StandardEvent> afterOct = unbounded.fromAfter(YM, 2013, 10);
 
-    Assert.assertFalse("Should not contain partial", afterOct.contains(october));
+    Assert.assertFalse("Should not contain partial", afterOct.contains(YM, 2013, 10));
     Assert.assertFalse("Should contain days",
-        afterOct.contains(newMarker(2013, 10, 5)));
+        afterOct.contains(YMD, 2013, 10, 5));
     Assert.assertFalse("Should not contain year",
-        afterOct.contains(newMarker(2013)));
+        afterOct.contains(Y, 2013));
     Assert.assertFalse("Should not contain previous month",
-        afterOct.contains(newMarker(2013, 9)));
+        afterOct.contains(YM, 2013, 9));
     Assert.assertTrue("Should contain next month",
-        afterOct.contains(newMarker(2013, 11)));
+        afterOct.contains(YM, 2013, 11));
     Assert.assertFalse("Should not contain previous day",
-        afterOct.contains(newMarker(2013, 9, 30)));
+        afterOct.contains(YMD, 2013, 9, 30));
     Assert.assertTrue("Should contain next day",
-        afterOct.contains(newMarker(2013, 11, 1)));
+        afterOct.contains(YMD, 2013, 11, 1));
 
     // test events
     Assert.assertFalse("Should not contain older event",
@@ -388,25 +382,25 @@ public abstract class TestRangeViews extends MiniDFSTest {
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        afterOct.of(newMarker(2013, 10, 5));
+        afterOct.of(YMD, 2013, 10, 5);
       }
     });
     Assert.assertNotNull("from(contained marker) should succeed",
-        afterOct.from(newMarker(2013, 10, 6)));
+        afterOct.from(YMD, 2013, 10, 6));
     Assert.assertNotNull("fromAfter(contained marker) should succeed",
-        afterOct.fromAfter(newMarker(2013, 10, 4)));
+        afterOct.fromAfter(YMD, 2013, 10, 4));
     TestHelpers.assertThrows("to(contained marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        afterOct.to(newMarker(2013, 10, 21));
+        afterOct.to(YMD, 2013, 10, 21);
       }
     });
     TestHelpers.assertThrows("toBefore(contained marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        afterOct.toBefore(newMarker(2013, 10, 22));
+        afterOct.toBefore(YMD, 2013, 10, 22);
       }
     });
 
@@ -415,62 +409,62 @@ public abstract class TestRangeViews extends MiniDFSTest {
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        afterOct.of(newMarker(2013, 9, 5));
+        afterOct.of(YMD, 2013, 9, 5);
       }
     });
     Assert.assertNotNull("from(before marker) should succeed",
-        afterOct.from(newMarker(2013, 9, 6)));
+        afterOct.from(YMD, 2013, 9, 6));
     Assert.assertNotNull("fromAfter(before marker) should succeed",
-        afterOct.fromAfter(newMarker(2013, 9, 18)));
+        afterOct.fromAfter(YMD, 2013, 9, 18));
     TestHelpers.assertThrows("to(before marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        afterOct.to(newMarker(2013, 9, 21));
+        afterOct.to(YMD, 2013, 9, 21);
       }
     });
     TestHelpers.assertThrows("toBefore(before marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        afterOct.toBefore(newMarker(2013, 9, 22));
+        afterOct.toBefore(YMD, 2013, 9, 22);
       }
     });
 
     // test limiting to a sub-view with after markers
     Assert.assertNotNull("in(after marker) should succeed",
-        afterOct.of(newMarker(2013, 11, 19)));
+        afterOct.of(YMD, 2013, 11, 19));
     Assert.assertNotNull("from(after marker) should succeed",
-        afterOct.from(newMarker(2013, 11, 1)));
+        afterOct.from(YMD, 2013, 11, 1));
     Assert.assertNotNull("fromAfter(after marker) should succeed",
-        afterOct.fromAfter(newMarker(2013, 11, 1)));
+        afterOct.fromAfter(YMD, 2013, 11, 1));
     Assert.assertNotNull("to(after marker) should succeed",
-        afterOct.to(newMarker(2013, 11)));
+        afterOct.to(YM, 2013, 11));
     Assert.assertNotNull("toBefore(after marker) should succeed",
-        afterOct.toBefore(newMarker(2013, 11, 4)));
+        afterOct.toBefore(YMD, 2013, 11, 4));
 
     // test limiting to a sub-view with a containing
     Assert.assertNotNull("in(not contained) should succeed",
-        afterOct.of(newMarker(2013)));
+        afterOct.of(Y, 2013));
   }
 
   @Test
   public void testToView() {
-    final RangeView<StandardEvent> toOctober = unbounded.to(october);
+    final RefineableView<StandardEvent> toOctober = unbounded.to(YM, 2013, 10);
 
-    Assert.assertTrue("Should contain partial", toOctober.contains(october));
+    Assert.assertTrue("Should contain partial", toOctober.contains(YM, 2013, 10));
     Assert.assertTrue("Should contain days",
-        toOctober.contains(newMarker(2013, 10, 5)));
+        toOctober.contains(YMD, 2013, 10, 5));
     Assert.assertFalse("Should not contain year",
-        toOctober.contains(newMarker(2013)));
+        toOctober.contains(Y, 2013));
     Assert.assertTrue("Should contain previous month",
-        toOctober.contains(newMarker(2013, 9)));
+        toOctober.contains(YM, 2013, 9));
     Assert.assertFalse("Should not contain next month",
-        toOctober.contains(newMarker(2013, 11)));
+        toOctober.contains(YM, 2013, 11));
     Assert.assertTrue("Should contain preceding day",
-        toOctober.contains(newMarker(2013, 9, 30)));
+        toOctober.contains(YMD, 2013, 9, 30));
     Assert.assertFalse("Should not contain next day",
-        toOctober.contains(newMarker(2013, 11, 1)));
+        toOctober.contains(YMD, 2013, 11, 1));
 
     // test events
     Assert.assertTrue("Should contain older event",
@@ -484,77 +478,77 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // test limiting to a sub-view with contained markers
     Assert.assertNotNull("in(contained marker) should succeed",
-        toOctober.of(newMarker(2013, 10, 5)));
+        toOctober.of(YMD, 2013, 10, 5));
     Assert.assertNotNull("from(contained marker) should succeed",
-        toOctober.from(newMarker(2013, 10, 6)));
+        toOctober.from(YMD, 2013, 10, 6));
     Assert.assertNotNull("fromAfter(contained marker) should succeed",
-        toOctober.fromAfter(newMarker(2013, 10, 4)));
+        toOctober.fromAfter(YMD, 2013, 10, 4));
     Assert.assertNotNull("to(contained marker) should succeed",
-        toOctober.to(newMarker(2013, 10, 21)));
+        toOctober.to(YMD, 2013, 10, 21));
     Assert.assertNotNull("toBefore(contained marker) should succeed",
-        toOctober.toBefore(newMarker(2013, 10, 22)));
+        toOctober.toBefore(YMD, 2013, 10, 22));
 
     // test limiting to a sub-view with before markers
     Assert.assertNotNull("in(before marker) should succeed",
-        toOctober.of(newMarker(2013, 9, 5)));
+        toOctober.of(YMD, 2013, 9, 5));
     Assert.assertNotNull("from(before marker) should succeed",
-        toOctober.from(newMarker(2013, 9, 6)));
+        toOctober.from(YMD, 2013, 9, 6));
     Assert.assertNotNull("fromAfter(before marker) should succeed",
-        toOctober.fromAfter(newMarker(2013, 9, 18)));
+        toOctober.fromAfter(YMD, 2013, 9, 18));
     Assert.assertNotNull("to(before marker) should succeed",
-        toOctober.to(newMarker(2013, 9, 21)));
+        toOctober.to(YMD, 2013, 9, 21));
     Assert.assertNotNull("toBefore(before marker) should succeed",
-        toOctober.toBefore(newMarker(2013, 9, 22)));
+        toOctober.toBefore(YMD, 2013, 9, 22));
 
     // test limiting to a sub-view with after markers
     TestHelpers.assertThrows("in(after marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        toOctober.of(newMarker(2013, 11, 19));
+        toOctober.of(YMD, 2013, 11, 19);
       }
     });
     TestHelpers.assertThrows("from(after marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        toOctober.fromAfter(newMarker(2013, 11, 1));
+        toOctober.fromAfter(YMD, 2013, 11, 1);
       }
     });
     TestHelpers.assertThrows("fromAfter(after marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        toOctober.fromAfter(newMarker(2013, 11, 1));
+        toOctober.fromAfter(YMD, 2013, 11, 1);
       }
     });
     Assert.assertNotNull("to(after marker) should succeed",
-        toOctober.to(newMarker(2013, 11)));
+        toOctober.to(YM, 2013, 11));
     Assert.assertNotNull("toBefore(after marker) should succeed",
-        toOctober.toBefore(newMarker(2013, 11, 4)));
+        toOctober.toBefore(YMD, 2013, 11, 4));
 
     // test limiting to a sub-view with a containing
     Assert.assertNotNull("in(not contained) should succeed",
-        toOctober.of(newMarker(2013)));
+        toOctober.of(Y, 2013));
   }
 
   @Test
   public void testToBeforeView() {
-    final RangeView<StandardEvent> beforeOct = unbounded.toBefore(october);
+    final RefineableView<StandardEvent> beforeOct = unbounded.toBefore(YM, 2013, 10);
 
-    Assert.assertFalse("Should not contain partial", beforeOct.contains(october));
+    Assert.assertFalse("Should not contain partial", beforeOct.contains(YM, 2013, 10));
     Assert.assertFalse("Should not contain days",
-        beforeOct.contains(newMarker(2013, 10, 5)));
+        beforeOct.contains(YMD, 2013, 10, 5));
     Assert.assertFalse("Should not contain year",
-        beforeOct.contains(newMarker(2013)));
+        beforeOct.contains(Y, 2013));
     Assert.assertTrue("Should contain previous month",
-        beforeOct.contains(newMarker(2013, 9)));
+        beforeOct.contains(YM, 2013, 9));
     Assert.assertFalse("Should not contain next month",
-        beforeOct.contains(newMarker(2013, 11)));
+        beforeOct.contains(YM, 2013, 11));
     Assert.assertTrue("Should contain previous day",
-        beforeOct.contains(newMarker(2013, 9, 30)));
+        beforeOct.contains(YMD, 2013, 9, 30));
     Assert.assertFalse("Should not contain next day",
-        beforeOct.contains(newMarker(2013, 11, 1)));
+        beforeOct.contains(YMD, 2013, 11, 1));
 
     // test events
     Assert.assertTrue("Should contain older event",
@@ -571,89 +565,89 @@ public abstract class TestRangeViews extends MiniDFSTest {
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        beforeOct.of(newMarker(2013, 10, 5));
+        beforeOct.of(YMD, 2013, 10, 5);
       }
     });
     TestHelpers.assertThrows("from(contained marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        beforeOct.fromAfter(newMarker(2013, 10, 6));
+        beforeOct.fromAfter(YMD, 2013, 10, 6);
       }
     });
     TestHelpers.assertThrows("fromAfter(contained marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        beforeOct.fromAfter(newMarker(2013, 10, 4));
+        beforeOct.fromAfter(YMD, 2013, 10, 4);
       }
     });
     Assert.assertNotNull("to(contained marker) should succeed",
-        beforeOct.to(newMarker(2013, 10, 21)));
+        beforeOct.to(YMD, 2013, 10, 21));
     Assert.assertNotNull("toBefore(contained marker) should succeed",
-        beforeOct.toBefore(newMarker(2013, 10, 22)));
+        beforeOct.toBefore(YMD, 2013, 10, 22));
 
     // test limiting to a sub-view with before markers
     Assert.assertNotNull("in(before marker) should succeed",
-        beforeOct.of(newMarker(2013, 9, 5)));
+        beforeOct.of(YMD, 2013, 9, 5));
     Assert.assertNotNull("from(before marker) should succeed",
-        beforeOct.from(newMarker(2013, 9, 6)));
+        beforeOct.from(YMD, 2013, 9, 6));
     Assert.assertNotNull("fromAfter(before marker) should succeed",
-        beforeOct.fromAfter(newMarker(2013, 9, 18)));
+        beforeOct.fromAfter(YMD, 2013, 9, 18));
     Assert.assertNotNull("to(before marker) should succeed",
-        beforeOct.to(newMarker(2013, 9)));
+        beforeOct.to(YM, 2013, 9));
     Assert.assertNotNull("toBefore(before marker) should succeed",
-        beforeOct.toBefore(newMarker(2013, 9, 22)));
+        beforeOct.toBefore(YMD, 2013, 9, 22));
 
     // test limiting to a sub-view with after markers
     TestHelpers.assertThrows("in(after marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        beforeOct.of(newMarker(2013, 11, 19));
+        beforeOct.of(YMD, 2013, 11, 19);
       }
     });
     TestHelpers.assertThrows("from(after marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        beforeOct.fromAfter(newMarker(2013, 11, 1));
+        beforeOct.fromAfter(YMD, 2013, 11, 1);
       }
     });
     TestHelpers.assertThrows("fromAfter(after marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        beforeOct.fromAfter(newMarker(2013, 11, 1));
+        beforeOct.fromAfter(YMD, 2013, 11, 1);
       }
     });
     Assert.assertNotNull("to(after marker) should succeed",
-        beforeOct.to(newMarker(2013, 11)));
+        beforeOct.to(YM, 2013, 11));
     Assert.assertNotNull("toBefore(after marker) should succeed",
-        beforeOct.toBefore(newMarker(2013, 11, 4)));
+        beforeOct.toBefore(YMD, 2013, 11, 4));
 
     // test limiting to a sub-view with a containing
     Assert.assertNotNull("in(not contained) should succeed",
-        beforeOct.of(newMarker(2013)));
+        beforeOct.of(Y, 2013));
   }
 
   @Test
   public void testInView() {
-    final RangeView<StandardEvent> inOctober = unbounded.of(october);
+    final RefineableView<StandardEvent> inOctober = unbounded.of(YM, 2013, 10);
 
-    Assert.assertTrue("Should contain partial", inOctober.contains(october));
+    Assert.assertTrue("Should contain partial", inOctober.contains(YM, 2013, 10));
     Assert.assertTrue("Should contain days",
-        inOctober.contains(newMarker(2013, 10, 5)));
+        inOctober.contains(YMD, 2013, 10, 5));
     Assert.assertFalse("Should not contain year",
-        inOctober.contains(newMarker(2013)));
+        inOctober.contains(Y, 2013));
     Assert.assertFalse("Should not contain previous month",
-        inOctober.contains(newMarker(2013, 9)));
+        inOctober.contains(YM, 2013, 9));
     Assert.assertFalse("Should not contain next month",
-        inOctober.contains(newMarker(2013, 11)));
+        inOctober.contains(YM, 2013, 11));
     Assert.assertFalse("Should not contain preceding day",
-        inOctober.contains(newMarker(2013, 9, 30)));
+        inOctober.contains(YMD, 2013, 9, 30));
     Assert.assertFalse("Should not contain next day",
-        inOctober.contains(newMarker(2013, 11, 1)));
+        inOctober.contains(YMD, 2013, 11, 1));
 
     // test events
     Assert.assertFalse("Should not contain older event",
@@ -667,40 +661,40 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // test limiting to a sub-view
     Assert.assertNotNull("in(contained marker) should succeed",
-        inOctober.of(newMarker(2013, 10, 5)));
+        inOctober.of(YMD, 2013, 10, 5));
     Assert.assertNotNull("from(contained marker) should succeed",
-        inOctober.from(newMarker(2013, 10, 6)));
+        inOctober.from(YMD, 2013, 10, 6));
     Assert.assertNotNull("fromAfter(contained marker) should succeed",
-        inOctober.fromAfter(newMarker(2013, 10, 4)));
+        inOctober.fromAfter(YMD, 2013, 10, 4));
     Assert.assertNotNull("to(contained marker) should succeed",
-        inOctober.to(newMarker(2013, 10, 21)));
+        inOctober.to(YMD, 2013, 10, 21));
     Assert.assertNotNull("toBefore(contained marker) should succeed",
-        inOctober.toBefore(newMarker(2013, 10, 22)));
+        inOctober.toBefore(YMD, 2013, 10, 22));
 
     // test limiting to a sub-view with before markers
     TestHelpers.assertThrows("in(before marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        inOctober.of(newMarker(2013, 9, 5));
+        inOctober.of(YMD, 2013, 9, 5);
       }
     });
     Assert.assertNotNull("from(before marker) should succeed",
-        inOctober.from(newMarker(2013, 9, 6)));
+        inOctober.from(YMD, 2013, 9, 6));
     Assert.assertNotNull("fromAfter(before marker) should succeed",
-        inOctober.fromAfter(newMarker(2013, 9, 18)));
+        inOctober.fromAfter(YMD, 2013, 9, 18));
     TestHelpers.assertThrows("to(before marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        inOctober.to(newMarker(2013, 9, 21));
+        inOctober.to(YMD, 2013, 9, 21);
       }
     });
     TestHelpers.assertThrows("toBefore(before marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        inOctober.toBefore(newMarker(2013, 9, 22));
+        inOctober.toBefore(YMD, 2013, 9, 22);
       }
     });
 
@@ -709,43 +703,39 @@ public abstract class TestRangeViews extends MiniDFSTest {
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        inOctober.of(newMarker(2013, 11, 19));
+        inOctober.of(YMD, 2013, 11, 19);
       }
     });
     TestHelpers.assertThrows("from(after marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        inOctober.fromAfter(newMarker(2013, 11, 1));
+        inOctober.fromAfter(YMD, 2013, 11, 1);
       }
     });
     TestHelpers.assertThrows("fromAfter(after marker) should fail",
         IllegalArgumentException.class, new Runnable() {
       @Override
       public void run() {
-        inOctober.fromAfter(newMarker(2013, 11, 1));
+        inOctober.fromAfter(YMD, 2013, 11, 1);
       }
     });
     Assert.assertNotNull("to(after marker) should succeed",
-        inOctober.to(newMarker(2013, 11)));
+        inOctober.to(YM, 2013, 11));
     Assert.assertNotNull("toBefore(after marker) should succeed",
-        inOctober.toBefore(newMarker(2013, 11, 4)));
+        inOctober.toBefore(YMD, 2013, 11, 4));
 
     // test limiting to a sub-view with a containing
     Assert.assertNotNull("in(not contained) should succeed",
-        inOctober.of(newMarker(2013)));
+        inOctober.of(Y, 2013));
   }
 
   @Test
   public void testUnboundedView() {
-    Assert.assertTrue("Should contain any Marker",
-        unbounded.contains(now));
-    Assert.assertTrue("Should contain an empty Marker",
-        unbounded.contains(empty));
-
-    // null is not contained in any bounded range, even if one end is unbounded
-    Assert.assertTrue("Should be unbounded",
-        unbounded.contains((Marker) null));
+    Assert.assertTrue("Should contain any values",
+        unbounded.contains(TIMESTAMP, now));
+    Assert.assertTrue("Should contain an empty values",
+        unbounded.contains(EMPTY));
 
     // test events
     Assert.assertTrue("Should contain any StandardEvent",
@@ -760,17 +750,16 @@ public abstract class TestRangeViews extends MiniDFSTest {
         unbounded.contains(novEvent));
 
     // test range limiting
-    Marker y2013 = newMarker(2013);
     Assert.assertNotNull("from should succeed",
-        unbounded.from(y2013));
+        unbounded.from(Y, 2013));
     Assert.assertNotNull("fromAfter should succeed",
-        unbounded.fromAfter(y2013));
+        unbounded.fromAfter(Y, 2013));
     Assert.assertNotNull("to should succeed",
-        unbounded.to(y2013));
+        unbounded.to(Y, 2013));
     Assert.assertNotNull("toBefore should succeed",
-        unbounded.toBefore(y2013));
+        unbounded.toBefore(Y, 2013));
     Assert.assertNotNull("in should succeed",
-        unbounded.of(y2013));
+        unbounded.of(Y, 2013));
   }
 
   @Test
@@ -780,16 +769,14 @@ public abstract class TestRangeViews extends MiniDFSTest {
         .Builder(testDescriptor).partitionStrategy(null).build();
     final Dataset<StandardEvent> flatDataset =
         repo.create("flat", flatDescriptor);
-    final RangeView<StandardEvent> notPartitioned = (RangeView<StandardEvent>)
+    final RefineableView<StandardEvent> notPartitioned = (RefineableView<StandardEvent>)
         flatDataset;
 
-    // test contains(Marker)
-    Assert.assertTrue("Should contain any Marker",
-        notPartitioned.contains(now));
-    Assert.assertTrue("Should contain an empty Marker",
-        notPartitioned.contains(empty));
-    Assert.assertTrue("Should contain even null Markers",
-        notPartitioned.contains((Marker) null));
+    // test contains(names, values)
+    Assert.assertTrue("Should contain any values",
+        notPartitioned.contains(TIMESTAMP, now));
+    Assert.assertTrue("Should contain an empty values",
+        notPartitioned.contains(EMPTY));
 
     // test contains(Entity)
     Assert.assertTrue("Should contain any StandardEvent",
@@ -801,50 +788,37 @@ public abstract class TestRangeViews extends MiniDFSTest {
         IllegalStateException.class, new Runnable() {
       @Override
       public void run() {
-        notPartitioned.from(now);
+        notPartitioned.from(TIMESTAMP, now);
       }
     });
     TestHelpers.assertThrows("fromAfter should fail",
         IllegalStateException.class, new Runnable() {
       @Override
       public void run() {
-        notPartitioned.fromAfter(now);
+        notPartitioned.fromAfter(TIMESTAMP, now);
       }
     });
     TestHelpers.assertThrows("to should fail",
         IllegalStateException.class, new Runnable() {
       @Override
       public void run() {
-        notPartitioned.to(now);
+        notPartitioned.to(TIMESTAMP, now);
       }
     });
     TestHelpers.assertThrows("toBefore should fail",
         IllegalStateException.class, new Runnable() {
       @Override
       public void run() {
-        notPartitioned.toBefore(now);
+        notPartitioned.toBefore(TIMESTAMP, now);
       }
     });
     TestHelpers.assertThrows("in should fail",
         IllegalStateException.class, new Runnable() {
       @Override
       public void run() {
-        notPartitioned.of(now);
+        notPartitioned.of(TIMESTAMP, now);
       }
     });
   }
 
-  public static Marker newMarker(Object... values) {
-    Marker.Builder builder = new Marker.Builder();
-    if (values.length >= 1) {
-      builder.add("year", values[0]);
-      if (values.length >= 2) {
-        builder.add("month", values[1]);
-        if (values.length >= 3) {
-          builder.add("day", values[2]);
-        }
-      }
-    }
-    return builder.build();
-  }
 }

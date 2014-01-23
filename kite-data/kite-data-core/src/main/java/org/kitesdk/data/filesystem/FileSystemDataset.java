@@ -145,28 +145,7 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
     return unbounded.pathIterator();
   }
 
-  @Override
-  public FileSystemView<E> from(Marker start) {
-    return (FileSystemView<E>) unbounded.from(start);
-  }
-
-  @Override
-  public FileSystemView<E> fromAfter(Marker start) {
-    return (FileSystemView<E>) unbounded.fromAfter(start);
-  }
-
-  @Override
-  public FileSystemView<E> to(Marker end) {
-    return (FileSystemView<E>) unbounded.to(end);
-  }
-
-  @Override
-  public FileSystemView<E> toBefore(Marker end) {
-    return (FileSystemView<E>) unbounded.toBefore(end);
-  }
-
-  @Override
-  public FileSystemView<E> of(Marker partial) {
+  FileSystemView<E> of(Marker partial) {
     return (FileSystemView<E>) unbounded.of(partial);
   }
 
@@ -186,8 +165,18 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
   }
 
   @Override
+  public FileSystemView<E> from(String[] names, Object... values) {
+    return (FileSystemView<E>) unbounded.from(names, values);
+  }
+
+  @Override
   public FileSystemView<E> fromAfter(String name, Object value) {
     return (FileSystemView<E>) unbounded.fromAfter(name, value);
+  }
+
+  @Override
+  public FileSystemView<E> fromAfter(String[] names, Object... values) {
+    return (FileSystemView<E>) unbounded.fromAfter(names, values);
   }
 
   @Override
@@ -196,8 +185,23 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
   }
 
   @Override
+  public FileSystemView<E> to(String[] names, Object... values) {
+    return (FileSystemView<E>) unbounded.to(names, values);
+  }
+
+  @Override
   public FileSystemView<E> toBefore(String name, Object value) {
     return (FileSystemView<E>) unbounded.toBefore(name, value);
+  }
+
+  @Override
+  public FileSystemView<E> toBefore(String[] names, Object... values) {
+    return (FileSystemView<E>) unbounded.toBefore(names, values);
+  }
+
+  @Override
+  public FileSystemView<E> of(String[] names, Object... values) {
+    return (FileSystemView<E>) unbounded.of(names, values);
   }
 
   @Override

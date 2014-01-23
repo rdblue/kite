@@ -22,14 +22,21 @@ public interface RefineableView<E> extends View<E> {
   RefineableView<E> with(String name, Object value);
 
   RefineableView<E> from(String name, Object value);
+  RefineableView<E> from(String[] names, Object... values);
 
   RefineableView<E> fromAfter(String name, Object value);
+  RefineableView<E> fromAfter(String[] names, Object... values);
 
   RefineableView<E> to(String name, Object value);
+  RefineableView<E> to(String[] names, Object... values);
 
   RefineableView<E> toBefore(String name, Object value);
+  RefineableView<E> toBefore(String[] names, Object... values);
+
+  RefineableView<E> of(String[] names, Object... values);
 
   RefineableView<E> union(View<E> other);
 
   RefineableView<E> complement();
+
 }
