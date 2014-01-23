@@ -16,28 +16,10 @@
 
 package org.kitesdk.data.spi;
 
-import org.kitesdk.data.Dataset;
 import org.kitesdk.data.View;
 
+// TODO: delete this class since markers can be replaced by the single-field variants, or Tuples
 interface RangeView<E> extends View<E> {
-
-  /**
-   * Deletes the data in this {@link View} or throws an {@code Exception}.
-   *
-   * Implementations may choose to throw {@link UnsupportedOperationException}
-   * for deletes that cannot be easily satisfied by the implementation. For
-   * example, in a partitioned {@link Dataset}, the implementation may reject
-   * deletes that do not align with partition boundaries. Implementations must
-   * document what deletes are supported and under what conditions deletes will
-   * be rejected.
-   *
-   * @return true if any data was deleted; false if the view was already empty
-   * @throws UnsupportedOperationException
-   *          If the requested delete cannot be completed by the implementation
-   * @throws org.kitesdk.data.DatasetIOException
-   *          If the requested delete failed because of an IOException
-   */
-  boolean deleteAll();
 
   /**
    * Returns whether a {@link Marker} is in this {@code View}
@@ -46,30 +28,6 @@ interface RangeView<E> extends View<E> {
    * @return true if {@code marker} is in the partition space of this view.
    */
   boolean contains(Marker marker);
-
-  /**
-   * Returns an Iterable of non-overlapping {@link View} objects that partition
-   * the underlying {@link org.kitesdk.data.Dataset} and cover this {@code View}.
-   *
-   * The returned {@code View} objects are implementation-specific, but should
-   * represent reasonable partitions of the underlying {@code Dataset} based on
-   * its layout.
-   *
-   * The data contained by the union of each {@code View} in the Iterable must
-   * be a super-set of this {@code View}.
-   *
-   * Note that partitions are actual partitions under which data is stored.
-   * Implementations are encouraged to omit any {@code View} that is empty.
-   *
-   * This method is intended to be used by classes like InputFormat, which need
-   * to enumerate the underlying partitions to create InputSplits.
-   *
-   * @return
-   *      An Iterable of the {@code View} that cover this {@code View}.
-   * @throws IllegalStateException
-   *      If the underlying {@code Dataset} is not partitioned.
-   */
-  Iterable<View<E>> getCoveringPartitions();
 
   /**
    * Creates a sub-{@code View}, from the {@code start} {@link Marker} to the
