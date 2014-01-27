@@ -15,11 +15,15 @@
  */
 package org.kitesdk.data.partition;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.Range;
+import com.google.common.collect.Ranges;
 import org.kitesdk.data.FieldPartitioner;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
 
 import com.google.common.primitives.Ints;
+import org.kitesdk.data.spi.Constraints;
 
 @Beta
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(
@@ -50,6 +54,21 @@ public class IntRangeFieldPartitioner extends FieldPartitioner<Integer, Integer>
   @Deprecated
   public Integer valueFromString(String stringValue) {
     return Integer.parseInt(stringValue);
+  }
+
+  @Override
+  public Predicate<Integer> project(Predicate<Integer> predicate) {
+    if (predicate instanceof Constraints.Exists) {
+      return Constraints.exists();
+    } else if (predicate instanceof Constraints.In) {
+      return ((Constraints.In<Integer>) predicate).transform(this);
+    } else if (predicate instanceof Range) {
+      return Ranges.closed(
+          apply(((Range<Integer>) predicate).lowerEndpoint()),
+          apply(((Range<Integer>) predicate).upperEndpoint()));
+    } else {
+      return null;
+    }
   }
 
   @Override

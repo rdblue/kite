@@ -16,15 +16,18 @@
 
 package org.kitesdk.data.partition;
 
-import com.google.common.base.Objects;
-import org.kitesdk.data.FieldPartitioner;
 import com.google.common.annotations.Beta;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-
+import com.google.common.base.Predicate;
+import com.google.common.collect.Range;
+import com.google.common.collect.Ranges;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
+import org.kitesdk.data.FieldPartitioner;
+import org.kitesdk.data.spi.Constraints;
 
 /**
  * A FieldPartitioner that formats a timestamp (long) in milliseconds since
@@ -86,6 +89,23 @@ public class DateFormatPartitioner extends FieldPartitioner<Long, String> {
   @Deprecated
   public String valueFromString(String stringValue) {
     return stringValue;
+  }
+
+  @Override
+  public Predicate<String> project(Predicate<Long> predicate) {
+    if (predicate instanceof Constraints.Exists) {
+      return Constraints.exists();
+    } else if (predicate instanceof Constraints.In) {
+      return ((Constraints.In<Long>) predicate).transform(this);
+    } else if (predicate instanceof Range) {
+      // FIXME: This project is only true in some cases
+      // true for yyyy-MM-dd, but not dd-MM-yyyy
+      return Ranges.closed(
+          apply(((Range<Long>) predicate).lowerEndpoint()),
+          apply(((Range<Long>) predicate).upperEndpoint()));
+    } else {
+      return null;
+    }
   }
 
   @Override
