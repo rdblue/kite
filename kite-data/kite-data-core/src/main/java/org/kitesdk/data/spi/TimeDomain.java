@@ -17,11 +17,13 @@
 package org.kitesdk.data.spi;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.BoundType;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
@@ -34,9 +36,13 @@ import javax.annotation.concurrent.Immutable;
 import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.partition.CalendarFieldPartitioner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Immutable
 public class TimeDomain {
+  private static final Logger LOG = LoggerFactory.getLogger(TimeDomain.class);
+
   private static final int[] order = new int[]{
       Calendar.YEAR, Calendar.MONTH, Calendar.DAY_OF_MONTH,
       Calendar.HOUR_OF_DAY, Calendar.MINUTE, Calendar.SECOND
@@ -118,6 +124,11 @@ public class TimeDomain {
       }
       return times.apply(time);
     }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this).add("in", times).toString();
+    }
   }
 
   private class TimeRangePredicate implements Predicate<StorageKey> {
@@ -130,27 +141,54 @@ public class TimeDomain {
     @Override
     public boolean apply(@Nullable StorageKey key) {
       Preconditions.checkNotNull(key);
+      boolean returnVal = true; // no bounds => accept
+      if (timeRange.hasLowerBound()) {
+        returnVal = checkLower(key, timeRange.lowerEndpoint() +
+            (BoundType.CLOSED == timeRange.lowerBoundType() ? 0 : 1));
+      }
+      if (returnVal && timeRange.hasUpperBound()) {
+        returnVal = checkUpper(key, timeRange.upperEndpoint() -
+            (BoundType.CLOSED == timeRange.upperBoundType() ? 0 : 1));
+      }
+      return returnVal;
+    }
+
+    private boolean checkLower(StorageKey key, long timestamp) {
       for (CalendarFieldPartitioner calField : partitioners) {
         int value = (Integer) key.get(calField.getName());
-        int lower = calField.apply(timeRange.lowerEndpoint());
-        int upper = calField.apply(timeRange.upperEndpoint());
-        if (lower < value) {
-          if (value < upper) {
-            // strictly within range, so all other levels must be
-            // example: 2013-4-10 to 2013-10-4 => 4 < month < 10 => accept
-            return true;
-          } else if (value > upper) {
-            // falls out of the range at this level
-            return false;
-          }
-        } else if (value < lower) {
-          // falls out of the range at this level
+        int lower = calField.apply(timestamp);
+        if (value < lower) {
+          // strictly within range, so all other levels must be
+          // example: 2013-4-10 to 2013-10-4 => 4 < month < 10 => accept
           return false;
+        } else if (value > lower) {
+          // falls out of the range at this level
+          return true;
         }
         // value was equal to one endpoint, continue checking
       }
       // each position was satisfied, so the key matches
       return true;
+    }
+
+    private boolean checkUpper(StorageKey key, long timestamp) {
+      for (CalendarFieldPartitioner calField : partitioners) {
+        int value = (Integer) key.get(calField.getName());
+        int upper = calField.apply(timestamp);
+        if (value > upper) {
+          return false;
+        } else if (value < upper) {
+          return true;
+        }
+      }
+      return true;
+    }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this)
+          .add("timeRange", timeRange)
+          .toString();
     }
   }
 }
