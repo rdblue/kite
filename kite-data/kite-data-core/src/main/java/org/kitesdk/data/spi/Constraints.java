@@ -17,6 +17,7 @@
 package org.kitesdk.data.spi;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
@@ -41,12 +42,16 @@ import org.apache.avro.generic.GenericRecord;
 import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.partition.CalendarFieldPartitioner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A set of simultaneous constraints.
  */
 @Immutable
 public class Constraints<E> implements Predicate<E> {
+
+  private static final Logger LOG = LoggerFactory.getLogger(Constraints.class);
 
   private final Map<String, Predicate> constraints;
 
@@ -59,6 +64,11 @@ public class Constraints<E> implements Predicate<E> {
     @Override
     public boolean apply(@Nullable T value) {
       return (value != null);
+    }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this).toString();
     }
   }
 
@@ -73,6 +83,7 @@ public class Constraints<E> implements Predicate<E> {
 
     private In(Iterable<T> values) {
       this.set = ImmutableSet.copyOf(values);
+      Preconditions.checkArgument(set.size() > 0, "No values to match");
     }
 
     private In(T... values) {
@@ -89,16 +100,45 @@ public class Constraints<E> implements Predicate<E> {
     }
 
     public In<T> filter(Predicate<T> predicate) {
-      return new In<T>(Iterables.filter(set, predicate));
+      try {
+        return new In<T>(Iterables.filter(set, predicate));
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException(
+            "Filter predicate produces empty set", e);
+      }
     }
 
     public <V> In<V> transform(Function<T, V> function) {
       return new In<V>(Iterables.transform(set, function));
     }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this).add("set", set).toString();
+    }
   }
 
   public static <T> In<T> in(Set<T> set) {
     return new In<T>(set);
+  }
+
+  // This should be a method on Range, like In#transform.
+  @SuppressWarnings("unchecked")
+  public static <S extends Comparable, T extends Comparable>
+  Range<T> rangeTransformClosed(Range<S> range, Function<S, T> function) {
+    if (range.hasLowerBound()) {
+      if (range.hasUpperBound()) {
+        return Ranges.closed(
+            function.apply(range.lowerEndpoint()),
+            function.apply(range.upperEndpoint()));
+      } else {
+        return Ranges.atLeast(function.apply(range.lowerEndpoint()));
+      }
+    } else if (range.hasUpperBound()) {
+      return Ranges.atMost(function.apply(range.upperEndpoint()));
+    } else {
+      return (Range<T>) Ranges.all();
+    }
   }
 
   public Constraints() {
@@ -155,8 +195,7 @@ public class Constraints<E> implements Predicate<E> {
 
       Object pValue = key.get(fp.getName());
 
-      if (fp instanceof CalendarFieldPartitioner &&
-          constraint instanceof Range) {
+      if (fp instanceof CalendarFieldPartitioner) {
         timeFields.add(fp.getSourceName());
       }
 
@@ -184,22 +223,24 @@ public class Constraints<E> implements Predicate<E> {
     return new KeyRangeIterator(strategy);
   }
 
-  public <T> Constraints with(String name, T... values) {
+  @SuppressWarnings("unchecked")
+  public Constraints<E> with(String name, Object... values) {
     if (values.length > 0) {
       checkContained(name, values);
       // this is the most specific constraint and is idempotent under "and"
-      return new Constraints<E>(constraints, name, new In<T>(values));
+      return new Constraints<E>(constraints, name, new In<Object>(values));
     } else {
-      // exists is the weakest constraint, satisfied by any existing constraint
       if (!constraints.containsKey(name)) {
+        // no other constraint => add the exists
         return new Constraints<E>(constraints, name, exists());
       } else {
+        // satisfied by an existing constraint
         return this;
       }
     }
   }
 
-  public Constraints from(String name, Comparable value) {
+  public Constraints<E> from(String name, Comparable value) {
     checkContained(name, value);
     Range added = Ranges.atLeast(value);
     if (constraints.containsKey(name)) {
@@ -210,7 +251,7 @@ public class Constraints<E> implements Predicate<E> {
     }
   }
 
-  public Constraints fromAfter(String name, Comparable value) {
+  public Constraints<E> fromAfter(String name, Comparable value) {
     checkContained(name, value);
     Range added = Ranges.greaterThan(value);
     if (constraints.containsKey(name)) {
@@ -221,7 +262,7 @@ public class Constraints<E> implements Predicate<E> {
     }
   }
 
-  public Constraints to(String name, Comparable value) {
+  public Constraints<E> to(String name, Comparable value) {
     checkContained(name, value);
     Range added = Ranges.atMost(value);
     if (constraints.containsKey(name)) {
@@ -232,7 +273,7 @@ public class Constraints<E> implements Predicate<E> {
     }
   }
 
-  public Constraints toBefore(String name, Comparable value) {
+  public Constraints<E> toBefore(String name, Comparable value) {
     checkContained(name, value);
     Range added = Ranges.lessThan(value);
     if (constraints.containsKey(name)) {
@@ -324,7 +365,8 @@ public class Constraints<E> implements Predicate<E> {
     for (Object value : values) {
       if (constraints.containsKey(name)) {
         Predicate current = constraints.get(name);
-        Preconditions.checkState(current.apply(value));
+        Preconditions.checkArgument(current.apply(value),
+            "%s does not match %s", current, value);
       }
     }
   }
@@ -354,5 +396,10 @@ public class Constraints<E> implements Predicate<E> {
     return "get" +
         name.substring(0, 1).toUpperCase(Locale.ENGLISH) +
         name.substring(1);
+  }
+
+  @Override
+  public String toString() {
+    return Objects.toStringHelper(this).addValue(constraints).toString();
   }
 }

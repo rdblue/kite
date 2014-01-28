@@ -100,9 +100,9 @@ public class DateFormatPartitioner extends FieldPartitioner<Long, String> {
     } else if (predicate instanceof Range) {
       // FIXME: This project is only true in some cases
       // true for yyyy-MM-dd, but not dd-MM-yyyy
-      return Ranges.closed(
-          apply(((Range<Long>) predicate).lowerEndpoint()),
-          apply(((Range<Long>) predicate).upperEndpoint()));
+      // this is lossy, so the final range must be closed:
+      //   (2013-10-4 20:17:55, ...] => [2013-10-4, ...]
+      return Constraints.rangeTransformClosed((Range<Long>) predicate, this);
     } else {
       return null;
     }

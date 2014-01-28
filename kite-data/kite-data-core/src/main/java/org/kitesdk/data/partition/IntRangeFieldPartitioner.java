@@ -63,9 +63,9 @@ public class IntRangeFieldPartitioner extends FieldPartitioner<Integer, Integer>
     } else if (predicate instanceof Constraints.In) {
       return ((Constraints.In<Integer>) predicate).transform(this);
     } else if (predicate instanceof Range) {
-      return Ranges.closed(
-          apply(((Range<Integer>) predicate).lowerEndpoint()),
-          apply(((Range<Integer>) predicate).upperEndpoint()));
+      // must use a closed range:
+      //   if this( 5 ) => 10 then this( 6 ) => 10, so 10 must be included
+      return Constraints.rangeTransformClosed((Range<Integer>) predicate, this);
     } else {
       return null;
     }

@@ -40,9 +40,7 @@ public class YearFieldPartitioner extends CalendarFieldPartitioner {
     } else if (predicate instanceof Constraints.In) {
       return ((Constraints.In<Long>) predicate).transform(this);
     } else if (predicate instanceof Range) {
-      return Ranges.closed(
-          apply(((Range<Long>) predicate).lowerEndpoint()),
-          apply(((Range<Long>) predicate).upperEndpoint()));
+      return Constraints.rangeTransformClosed((Range<Long>) predicate, this);
     } else {
       return null;
     }
