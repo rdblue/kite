@@ -19,6 +19,7 @@ package org.kitesdk.data.filesystem;
 import org.kitesdk.data.DatasetException;
 import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
+import org.kitesdk.data.spi.Constraints;
 import org.kitesdk.data.spi.StorageKey;
 import org.kitesdk.data.spi.MarkerRange;
 import org.kitesdk.data.spi.RangePredicate;
@@ -49,14 +50,14 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
   private final Iterator<StorageKey> iterator;
 
   private static class KeyPredicate implements Predicate<StorageKey> {
-    private final RangePredicate predicate;
+    private final Constraints constraints;
 
-    public KeyPredicate(RangePredicate predicate) {
-      this.predicate = predicate;
+    public KeyPredicate(Constraints constraints) {
+      this.constraints = constraints;
     }
 
     @Override public boolean apply(StorageKey key) {
-      return predicate.apply(key);
+      return constraints.matchesKey(key);
     }
   }
 
@@ -121,7 +122,7 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
 
   FileSystemPartitionIterator(
       FileSystem fs, Path root, PartitionStrategy strategy,
-      final RangePredicate predicate)
+      final Constraints constraints)
       throws IOException {
     Preconditions.checkArgument(fs.isDirectory(root));
     this.fs = fs;
@@ -130,7 +131,7 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
         Iterators.transform(
             new FileSystemIterator(strategy.getFieldPartitioners().size()),
             new MakeKey(strategy)),
-        new KeyPredicate(predicate));
+        new KeyPredicate(constraints));
   }
 
   @Override

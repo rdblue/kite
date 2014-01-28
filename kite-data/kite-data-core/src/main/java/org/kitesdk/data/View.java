@@ -75,8 +75,6 @@ public interface View<E> {
    */
   boolean contains(E key);
 
-  boolean contains(String[] names, Object... values);
-
   /**
    * Deletes the data in this {@link View} or throws an {@code Exception}.
    *

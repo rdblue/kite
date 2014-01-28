@@ -56,14 +56,7 @@ public abstract class AbstractDataset<E> implements Dataset<E>, RefineableView<E
   }
 
   @Override
-  public boolean contains(E key) {
-    // A Dataset contains all PartitionKeys, only sub-views have to check
-    return true;
-  }
-
-  @Override
-  public boolean contains(String[] names, Object... values) {
-    // A Dataset contains all PartitionKeys, only sub-views have to check
+  public boolean contains(E entity) {
     return true;
   }
 

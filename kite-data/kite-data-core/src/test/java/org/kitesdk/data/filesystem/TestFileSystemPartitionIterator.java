@@ -16,12 +16,13 @@
 
 package org.kitesdk.data.filesystem;
 
-import org.kitesdk.data.spi.Marker;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.kitesdk.data.spi.Constraints;
 import org.kitesdk.data.MiniDFSTest;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.spi.StorageKey;
 import org.kitesdk.data.spi.MarkerComparator;
-import org.kitesdk.data.spi.RangePredicates;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
@@ -40,9 +41,14 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RunWith(Parameterized.class)
 public class TestFileSystemPartitionIterator extends MiniDFSTest {
+  private static final Logger LOG = LoggerFactory
+      .getLogger(TestFileSystemPartitionIterator.class);
+
   public FileSystem fileSystem;
   public Path testDirectory;
   public static PartitionStrategy strategy;
@@ -109,129 +115,80 @@ public class TestFileSystemPartitionIterator extends MiniDFSTest {
   @Test
   public void testUnbounded() throws Exception {
     Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.all(comparator));
+        fileSystem, testDirectory, strategy, new Constraints());
 
     assertIterableEquals(keys, partitions);
   }
 
+  public static final long oct_25_2012 = new DateTime(2012, 10, 25, 0, 0, DateTimeZone.UTC).getMillis();
+  public static final long oct_24_2013 = new DateTime(2013, 10, 24, 0, 0, DateTimeZone.UTC).getMillis();
+  public static final long oct_25_2013 = new DateTime(2013, 10, 25, 0, 0, DateTimeZone.UTC).getMillis();
+  public static final long oct_24_2013_end = oct_25_2013 - 1;
+
   @Test
-  public void testFromKey() throws Exception {
-    Marker october_24_2013 = new Marker.Builder().add("year", 2013).add("month", 10).add("day", 24).build();
+  public void testFrom() throws Exception {
     Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.from(comparator,
-        october_24_2013));
+        fileSystem, testDirectory, strategy,
+        new Constraints().from("timestamp", oct_24_2013));
     assertIterableEquals(keys.subList(16, 24), partitions);
   }
 
   @Test
-  public void testAfterKey() throws Exception {
-    Marker october_24_2013 = new Marker.Builder().add("year", 2013).add("month", 10).add("day", 24).build();
+  public void testAfter() throws Exception {
     Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.fromAfter(comparator,
-        october_24_2013));
+        fileSystem, testDirectory, strategy,
+        new Constraints().fromAfter("timestamp", oct_24_2013_end));
     assertIterableEquals(keys.subList(17, 24), partitions);
   }
 
   @Test
-  public void testToKey() throws Exception {
-    Marker october_25_2012 = new Marker.Builder().add("year", 2012).add("month", 10).add("day", 25).build();
+  public void testTo() throws Exception {
     Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.to(comparator,
-        october_25_2012));
+        fileSystem, testDirectory, strategy,
+        new Constraints().to("timestamp", oct_25_2012));
     assertIterableEquals(keys.subList(0, 6), partitions);
   }
 
   @Test
-  public void testBeforeKey() throws Exception {
-    Marker october_25_2012 = new Marker.Builder().add("year", 2012).add("month", 10).add("day", 25).build();
+  public void testBefore() throws Exception {
     Iterable <StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.toBefore(comparator,
-        october_25_2012));
+        fileSystem, testDirectory, strategy,
+        new Constraints().toBefore("timestamp", oct_25_2012));
     assertIterableEquals(keys.subList(0, 5), partitions);
   }
 
   @Test
-  public void testInKey() throws Exception {
-    Marker october_24_2013 = new Marker.Builder().add("year", 2013).add("month", 10).add("day", 24).build();
+  public void testWith() throws Exception {
     Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.of(comparator,
-        october_24_2013));
+        fileSystem, testDirectory, strategy,
+        new Constraints().with("timestamp", oct_24_2013));
     assertIterableEquals(keys.subList(16, 17), partitions);
   }
 
   @Test
-  public void testKeyRange() throws Exception {
-    Marker october_25_2012 = new Marker.Builder().add("year", 2012).add("month", 10).add("day", 25).build();
-    Marker october_24_2013 = new Marker.Builder().add("year", 2013).add("month", 10).add("day", 24).build();
+  public void testDayRange() throws Exception {
+    Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
+        fileSystem, testDirectory, strategy,
+        new Constraints().from("timestamp", oct_24_2013).to("timestamp", oct_24_2013_end));
+    assertIterableEquals(keys.subList(16, 17), partitions);
+  }
+
+  @Test
+  public void testLargerRange() throws Exception {
     Iterable <StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.and(
-        RangePredicates.from(comparator, october_25_2012),
-        RangePredicates.to(comparator, october_24_2013)));
+        fileSystem, testDirectory, strategy,
+        new Constraints().from("timestamp", oct_25_2012).to("timestamp", oct_24_2013));
     assertIterableEquals(keys.subList(5, 17), partitions);
-  }
-
-  @Test
-  public void testFromMarker() throws Exception {
-    Marker october_2013 = new Marker.Builder().add("year", 2013).add("month", 10).build();
-    Iterable <StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.from(comparator,
-        october_2013));
-    assertIterableEquals(keys.subList(15, 24), partitions);
-  }
-
-  @Test
-  public void testAfterMarker() throws Exception {
-    Marker october_2013 = new Marker.Builder().add("year", 2013).add("month", 10).build();
-    Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.fromAfter(comparator,
-        october_2013));
-    assertIterableEquals(keys.subList(18, 24), partitions);
-  }
-
-  @Test
-  public void testToMarker() throws Exception {
-    Marker october_2012 = new Marker.Builder().add("year", 2012).add("month", 10).build();
-    Iterable <StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.to(comparator,
-        october_2012));
-    assertIterableEquals(keys.subList(0, 6), partitions);
-  }
-
-  @Test
-  public void testBeforeMarker() throws Exception {
-    Marker october_2012 = new Marker.Builder().add("year", 2012).add("month", 10).build();
-    Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.toBefore(comparator,
-        october_2012));
-    assertIterableEquals(keys.subList(0, 3), partitions);
-  }
-
-  @Test
-  public void testInMarker() throws Exception {
-    Marker october_2012 = new Marker.Builder().add("year", 2012).add("month", 10).build();
-    Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.of(comparator,
-        october_2012));
-    assertIterableEquals(keys.subList(3, 6), partitions);
-  }
-
-  @Test
-  public void testMarkerRange() throws Exception {
-    Marker october_2012 = new Marker.Builder().add("year", 2012).add("month", 10).build();
-    Marker october_2013 = new Marker.Builder().add("year", 2013).add("month", 10).build();
-    Iterable<StorageKey> partitions = new FileSystemPartitionIterator(
-        fileSystem, testDirectory, strategy, RangePredicates.and(
-          RangePredicates.from(comparator, october_2012),
-          RangePredicates.toBefore(comparator, october_2013)));
-    assertIterableEquals(keys.subList(3, 15), partitions);
   }
 
   public static <T> void assertIterableEquals(
       Iterable<T> expected, Iterable<T> actualIterable) {
     Set<T> expectedSet = Sets.newHashSet(expected);
     for (T actual : actualIterable) {
+      // need to check as iteration happens because the StorageKey is reused
       Assert.assertTrue("Unexpected record: " + actual,
           expectedSet.remove(actual));
+      LOG.info("Expected record: " + actual);
     }
     Assert.assertEquals("Not all expected records were present: " + expectedSet,
         0, expectedSet.size());

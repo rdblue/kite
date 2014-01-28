@@ -16,7 +16,6 @@
 
 package org.kitesdk.data.spi;
 
-import com.google.common.base.Preconditions;
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
 import com.google.common.base.Objects;
@@ -39,7 +38,7 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
 
   protected final Dataset<E> dataset;
   protected final MarkerComparator comparator;
-  protected final RangePredicate predicate;
+  protected final Constraints<E> constraints;
 
   // This class is Immutable and must be thread-safe
   protected final ThreadLocal<StorageKey> keys;
@@ -49,7 +48,6 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
     final DatasetDescriptor descriptor = dataset.getDescriptor();
     if (descriptor.isPartitioned()) {
       this.comparator = new MarkerComparator(descriptor.getPartitionStrategy());
-      this.predicate = RangePredicates.all(comparator);
       this.keys = new ThreadLocal<StorageKey>() {
         @Override
         protected StorageKey initialValue() {
@@ -58,20 +56,20 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
       };
     } else {
       this.comparator = null;
-      this.predicate = null;
       this.keys = null;
     }
+    this.constraints = new Constraints<E>();
   }
 
-  protected AbstractRefineableView(AbstractRefineableView<E> view, RangePredicate predicate) {
+  protected AbstractRefineableView(AbstractRefineableView<E> view, Constraints<E> constraints) {
     this.dataset = view.dataset;
     this.comparator = view.comparator;
-    this.predicate = predicate;
+    this.constraints = constraints;
     // thread-safe, so okay to reuse when views share a partition strategy
     this.keys = view.keys;
   }
 
-  protected abstract AbstractRefineableView<E> filter(RangePredicate p);
+  protected abstract AbstractRefineableView<E> filter(Constraints<E> c);
 
   @Override
   public Dataset<E> getDataset() {
@@ -86,122 +84,52 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
 
   @Override
   public boolean contains(E entity) {
-    if (dataset.getDescriptor().isPartitioned()) {
-      return predicate.apply(keys.get().reuseFor(entity));
-    } else {
-      return true;
-    }
-  }
-
-  @Override
-  public boolean contains(String[] names, Object... values) {
-    if (dataset.getDescriptor().isPartitioned()) {
-      return predicate.apply(new Marker.ImmutableMarker(names, values));
-    } else {
-      return true;
-    }
-  }
-
-  private AbstractRefineableView<E> from(Marker start) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.from(comparator, start)));
-  }
-
-  private AbstractRefineableView<E> fromAfter(Marker start) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.fromAfter(comparator,
-        start)));
-  }
-
-  private AbstractRefineableView<E> to(Marker end) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.to(comparator, end)));
-  }
-
-  private AbstractRefineableView<E> toBefore(Marker end) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.toBefore(comparator, end)));
-  }
-
-  public AbstractRefineableView<E> of(Marker partial) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.of(comparator, partial)));
+    return constraints.contains(entity);
   }
 
   @Override
   public AbstractRefineableView<E> with(String name) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.with(comparator, name)));
+    return filter(constraints.with(name));
   }
 
   @Override
   public AbstractRefineableView<E> with(String name, Object value) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.with(comparator, name, value)));
+    return filter(constraints.with(name, value));
   }
 
   @Override
   public AbstractRefineableView<E> from(String name, Object value) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.from(comparator, name, value)));
-  }
-
-  @Override
-  public AbstractRefineableView<E> from(String[] names, Object... values) {
-    return from(new Marker.ImmutableMarker(names, values));
+    return filter(constraints.from(name, (Comparable) value));
   }
 
   @Override
   public AbstractRefineableView<E> fromAfter(String name, Object value) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.fromAfter(comparator, name, value)));
-  }
-
-  @Override
-  public AbstractRefineableView<E> fromAfter(String[] names, Object... values) {
-    return fromAfter(new Marker.ImmutableMarker(names, values));
+    return filter(constraints.fromAfter(name, (Comparable) value));
   }
 
   @Override
   public AbstractRefineableView<E> to(String name, Object value) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.to(comparator, name, value)));
-  }
-
-  @Override
-  public AbstractRefineableView<E> to(String[] names, Object... values) {
-    return to(new Marker.ImmutableMarker(names, values));
+    return filter(constraints.to(name, (Comparable) value));
   }
 
   @Override
   public AbstractRefineableView<E> toBefore(String name, Object value) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.and(predicate, RangePredicates.toBefore(comparator, name, value)));
-  }
-
-  @Override
-  public AbstractRefineableView<E> toBefore(String[] names, Object... values) {
-    return toBefore(new Marker.ImmutableMarker(names, values));
-  }
-
-  @Override
-  public AbstractRefineableView<E> of(String[] names, Object... values) {
-    return of(new Marker.ImmutableMarker(names, values));
+    return filter(constraints.toBefore(name, (Comparable) value));
   }
 
   @Override
   public AbstractRefineableView<E> union(View<E> other) {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    Preconditions.checkArgument(other instanceof AbstractRefineableView,
-        "View must be an instance of AbstractRefineableView: " + other);
-    AbstractRefineableView<E> abstractOther = (AbstractRefineableView<E>) other;
-    return filter(RangePredicates.or(predicate, abstractOther.predicate));
+    throw new UnsupportedOperationException("Union is not supported yet.");
+//    Preconditions.checkArgument(other instanceof AbstractRefineableView,
+//        "View must be an instance of AbstractRefineableView: " + other);
+//    AbstractRefineableView<E> abstractOther = (AbstractRefineableView<E>) other;
+//    return filter(RangePredicates.or(predicate, abstractOther.predicate));
   }
 
   @Override
   public AbstractRefineableView<E> complement() {
-    Preconditions.checkState(comparator != null, "Undefined range: no PartitionStrategy");
-    return filter(RangePredicates.not(predicate));
+    throw new UnsupportedOperationException("Complement is not supported yet.");
+//    return filter(RangePredicates.not(predicate));
   }
 
   @Override
@@ -216,19 +144,19 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
 
     AbstractRefineableView that = (AbstractRefineableView) o;
     return (Objects.equal(this.dataset, that.dataset) &&
-        Objects.equal(this.predicate, that.predicate));
+        Objects.equal(this.constraints, that.constraints));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(getClass(), dataset, predicate);
+    return Objects.hashCode(getClass(), dataset, constraints);
   }
 
   @Override
   public String toString() {
     return Objects.toStringHelper(this)
         .add("dataset", dataset)
-        .add("predicate", predicate)
+        .add("constraints", constraints)
         .toString();
   }
 }

@@ -22,8 +22,8 @@ import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.View;
 import org.kitesdk.data.spi.AbstractRefineableView;
+import org.kitesdk.data.spi.Constraints;
 import org.kitesdk.data.spi.StorageKey;
-import org.kitesdk.data.spi.RangePredicate;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -51,15 +51,15 @@ class FileSystemView<E> extends AbstractRefineableView<E> {
     this.root = dataset.getDirectory();
   }
 
-  private FileSystemView(FileSystemView<E> view, RangePredicate p) {
-    super(view, p);
+  private FileSystemView(FileSystemView<E> view, Constraints<E> c) {
+    super(view, c);
     this.fs = view.fs;
     this.root = view.root;
   }
 
   @Override
-  protected FileSystemView<E> filter(RangePredicate p) {
-    return new FileSystemView<E>(this, p);
+  protected FileSystemView<E> filter(Constraints<E> c) {
+    return new FileSystemView<E>(this, c);
   }
 
   @Override
@@ -90,23 +90,24 @@ class FileSystemView<E> extends AbstractRefineableView<E> {
   @Override
   @SuppressWarnings("unchecked")
   public Iterable<View<E>> getCoveringPartitions() {
-    if (dataset.getDescriptor().isPartitioned()) {
-      return Iterables.transform(
-          partitionIterator(),
-          new Function<StorageKey, View<E>>() {
-            @Override
-            public View<E> apply(StorageKey key) {
-              if (key != null) {
-                // no need for the bounds checks, use dataset.in
-                return ((FileSystemDataset) dataset).of(key);
-              } else {
-                throw new DatasetException("[BUG] Null partition");
-              }
-            }
-          });
-    } else {
-      return Lists.newArrayList((View<E>) this);
-    }
+    throw new UnsupportedOperationException("Not supported yet.");
+//    if (dataset.getDescriptor().isPartitioned()) {
+//      return Iterables.transform(
+//          partitionIterator(),
+//          new Function<StorageKey, View<E>>() {
+//            @Override
+//            public View<E> apply(StorageKey key) {
+//              if (key != null) {
+//                // no need for the bounds checks, use dataset.in
+//                return ((FileSystemDataset) dataset).of(key);
+//              } else {
+//                throw new DatasetException("[BUG] Null partition");
+//              }
+//            }
+//          });
+//    } else {
+//      return Lists.newArrayList((View<E>) this);
+//    }
   }
 
   PathIterator pathIterator() {
@@ -135,7 +136,7 @@ class FileSystemView<E> extends AbstractRefineableView<E> {
     try {
       return new FileSystemPartitionIterator(
           fs, root,
-          dataset.getDescriptor().getPartitionStrategy(), predicate);
+          dataset.getDescriptor().getPartitionStrategy(), constraints);
     } catch (IOException ex) {
       throw new DatasetException("Cannot list partitions in view:" + this, ex);
     }
