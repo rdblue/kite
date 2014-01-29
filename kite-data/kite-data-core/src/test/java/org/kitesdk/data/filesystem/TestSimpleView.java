@@ -23,6 +23,8 @@ import java.util.Set;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -35,17 +37,11 @@ import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.View;
 import org.kitesdk.data.event.StandardEvent;
-import org.kitesdk.data.spi.Marker;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class TestSimpleView {
 
-  private static final Logger LOG =
-      LoggerFactory.getLogger(TestSimpleView.class);
-
   protected static final StandardEvent event = StandardEvent.newBuilder()
-      .setEventInitiator("TestRangeViews")
+      .setEventInitiator("TestSimpleView")
       .setEventName("TestEvent")
       .setUserId(0)
       .setSessionId("session-0")
@@ -89,7 +85,9 @@ public class TestSimpleView {
 
     this.repo = newRepo();
     this.strategy = new PartitionStrategy.Builder()
+        .year("timestamp")
         .month("timestamp")
+        .day("timestamp")
         .hash("user_id", 2)
         .build();
     this.testDescriptor = new DatasetDescriptor.Builder()
@@ -132,55 +130,32 @@ public class TestSimpleView {
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent, novEvent),
         testDataset);
 
-//    // single bound
-//    assertContentEquals(Sets.newHashSet(octEvent, novEvent),
-//        testDataset.from("month", 10));
-//    assertContentEquals(Sets.newHashSet(novEvent),
-//        testDataset.fromAfter("month", 10));
-//    assertContentEquals(Sets.newHashSet(sepEvent, octEvent),
-//        testDataset.to("month", 10));
-//    assertContentEquals(Sets.newHashSet(sepEvent),
-//        testDataset.toBefore("month", 10));
-//
-//    // double bound
-//    assertContentEquals(Sets.newHashSet(octEvent),
-//        testDataset.from("month", 10).toBefore("month", 11));
-//
-//    // with
-//    assertContentEquals(Sets.newHashSet(sepEvent, octEvent, novEvent),
-//        testDataset.with("month"));
-//    assertContentEquals(Sets.newHashSet(octEvent),
-//        testDataset.with("month", 10));
-//    assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
-//        testDataset.with("user_id", 0));
-//    assertContentEquals(Sets.newHashSet(sepEvent),
-//        testDataset.with("user_id", 0).with("month", 9));
-//    assertContentEquals(Sets.newHashSet(sepEvent),
-//        testDataset.with("month", 9).with("user_id", 0));
-//
-//    // union
-//    assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
-//        testDataset.from("month", 9).to("month", 9)
-//            .union(testDataset.from("month", 11).to("month", 11)));
-//
-//    // complement
-//    assertContentEquals(Sets.newHashSet(sepEvent),
-//        testDataset.from("month", 10).complement());
+    long sepEnd = new DateTime(2013, 9, 30, 12, 59, 59, 999, DateTimeZone.UTC).getMillis();
+    long octInstant = octEvent.getTimestamp();
+    long novStart = new DateTime(2013, 11, 1, 0, 0, DateTimeZone.UTC).getMillis();
 
-  }
+    // single bound
+    assertContentEquals(Sets.newHashSet(octEvent, novEvent),
+        testDataset.from("timestamp", octInstant));
+    assertContentEquals(Sets.newHashSet(octEvent, novEvent),
+        testDataset.fromAfter("timestamp", sepEnd));
+    assertContentEquals(Sets.newHashSet(sepEvent, octEvent),
+        testDataset.to("timestamp", octInstant));
+    assertContentEquals(Sets.newHashSet(sepEvent, octEvent),
+        testDataset.toBefore("timestamp", novStart));
 
-  public static Marker newMarker(Object... values) {
-    Marker.Builder builder = new Marker.Builder();
-    if (values.length >= 1) {
-      builder.add("year", values[0]);
-      if (values.length >= 2) {
-        builder.add("month", values[1]);
-        if (values.length >= 3) {
-          builder.add("day", values[2]);
-        }
-      }
-    }
-    return builder.build();
+    // double bound
+    assertContentEquals(Sets.newHashSet(octEvent),
+        testDataset.from("timestamp", octInstant).toBefore("timestamp", novStart));
+
+    // with
+    assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
+        testDataset.with("user_id", 0));
+    assertContentEquals(Sets.newHashSet(sepEvent),
+        testDataset.with("user_id", 0).to("timestamp", octInstant));
+    assertContentEquals(Sets.newHashSet(sepEvent),
+        testDataset.to("timestamp", octInstant).with("user_id", 0));
+
   }
 
 }
