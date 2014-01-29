@@ -16,13 +16,21 @@
 
 package org.kitesdk.data.spi;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.Range;
+import com.google.common.collect.Ranges;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Random;
+import java.util.TimeZone;
 import java.util.UUID;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.junit.Assert;
 import org.junit.Test;
+import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
+import org.kitesdk.data.partition.DateFormatPartitioner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,12 +55,12 @@ public class TestConstraints {
     }
   }
 
-
   private PartitionStrategy timeOnly = new PartitionStrategy.Builder()
       .year("timestamp")
       .month("timestamp")
       .day("timestamp")
       .build();
+
   private PartitionStrategy strategy = new PartitionStrategy.Builder()
       .hash("id", "id-hash", 64)
       .year("timestamp")
@@ -60,6 +68,18 @@ public class TestConstraints {
       .day("timestamp")
       .identity("id", String.class, 100000)
       .build();
+
+  @Test
+  public void testDateFormatProjection() {
+    FieldPartitioner<Long, String> fp =
+        new DateFormatPartitioner("timestamp", "date", "yyyy-MM-dd");
+    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+    format.setTimeZone(TimeZone.getTimeZone("UTC"));
+
+    Predicate<String> result = fp.project(Ranges.open(START, START + ONE_DAY_MILLIS));
+    Assert.assertEquals(format.format(new Date(START - 123)), ((Range) result).lowerEndpoint());
+    Assert.assertEquals(format.format(new Date(START + ONE_DAY_MILLIS + 123)), ((Range) result).upperEndpoint());
+  }
 
   @Test
   public void testBasicMatches() {

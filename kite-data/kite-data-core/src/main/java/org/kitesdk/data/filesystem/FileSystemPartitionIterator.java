@@ -16,6 +16,7 @@
 
 package org.kitesdk.data.filesystem;
 
+import javax.annotation.Nullable;
 import org.kitesdk.data.DatasetException;
 import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
@@ -56,7 +57,7 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
       this.constraints = constraints;
     }
 
-    @Override public boolean apply(StorageKey key) {
+    @Override public boolean apply(@Nullable StorageKey key) {
       return constraints.matchesKey(key);
     }
   }

@@ -156,6 +156,21 @@ public abstract class Marker {
       return Objects.toStringHelper(this).add("values", values).toString();
     }
 
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(values);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null || !getClass().equals(obj.getClass())) {
+        return false;
+      }
+      return Objects.equal(this.values, ((ImmutableMarker) obj).values);
+    }
   }
 
   /**

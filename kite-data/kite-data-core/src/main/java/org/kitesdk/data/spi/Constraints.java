@@ -23,6 +23,8 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
@@ -31,10 +33,12 @@ import com.google.common.collect.Sets;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -56,7 +60,7 @@ public class Constraints<E> implements Predicate<E> {
   private final Map<String, Predicate> constraints;
 
   public static class Exists<T> implements Predicate<T> {
-    public static Exists INSTANCE = new Exists();
+    public static final Exists INSTANCE = new Exists();
 
     private Exists() {
     }
@@ -93,10 +97,7 @@ public class Constraints<E> implements Predicate<E> {
     @Override
     public boolean apply(@Nullable T test) {
       // Set#contains may throw NPE, depending on implementation
-      if (test == null) {
-        return false;
-      }
-      return set.contains(test);
+      return (test != null) && set.contains(test);
     }
 
     public In<T> filter(Predicate<T> predicate) {
@@ -112,6 +113,10 @@ public class Constraints<E> implements Predicate<E> {
       return new In<V>(Iterables.transform(set, function));
     }
 
+    Set<T> getSet() {
+      return set;
+    }
+
     @Override
     public String toString() {
       return Objects.toStringHelper(this).add("set", set).toString();
@@ -123,6 +128,7 @@ public class Constraints<E> implements Predicate<E> {
   }
 
   // This should be a method on Range, like In#transform.
+  // Unfortunately, Range is final so we will probably need to re-implement it.
   @SuppressWarnings("unchecked")
   public static <S extends Comparable, T extends Comparable>
   Range<T> rangeTransformClosed(Range<S> range, Function<S, T> function) {
@@ -159,7 +165,9 @@ public class Constraints<E> implements Predicate<E> {
 
   @SuppressWarnings("unchecked")
   public boolean contains(@Nullable E entity) {
-    Preconditions.checkNotNull(entity);
+    if (entity == null) {
+      return false;
+    }
     // check each constraint and fail immediately
     for (Map.Entry<String, Predicate> entry : constraints.entrySet()) {
       if (!entry.getValue().apply(get(entity, entry.getKey()))) {
@@ -172,6 +180,10 @@ public class Constraints<E> implements Predicate<E> {
 
   @SuppressWarnings("unchecked")
   public boolean matchesKey(StorageKey key) {
+    if (key == null) {
+      return false;
+    }
+
     PartitionStrategy strategy = key.getPartitionStrategy();
     // The constraints are in terms of the data, and the partition functions
     // are one-way functions from data to partition fields. This means that we
@@ -220,7 +232,7 @@ public class Constraints<E> implements Predicate<E> {
   }
 
   public Iterable<MarkerRange> toKeyRanges(PartitionStrategy strategy) {
-    return new KeyRangeIterator(strategy);
+    return new KeyRangeIterable(strategy, constraints);
   }
 
   @SuppressWarnings("unchecked")
@@ -285,65 +297,7 @@ public class Constraints<E> implements Predicate<E> {
   }
 
   @SuppressWarnings("unchecked")
-  public class KeyRangeIterator implements Iterable<MarkerRange> {
-    private final List<String> names = Lists.newArrayList();
-    private final Marker.Builder low = new Marker.Builder();
-    private final Marker.Builder high = new Marker.Builder();
-    private final Iterable iterable;
-
-    /**
-     * This cheats and uses Sets.cartesianProduct
-     * @param strategy
-     */
-    private KeyRangeIterator(final PartitionStrategy strategy) {
-      // project all constraints to the partition fields
-      List<Set<Object>> sets = Lists.newArrayList();
-      for (FieldPartitioner field : strategy.getFieldPartitioners()) {
-        names.add(field.getName());
-        Predicate constraint = constraints.get(field.getSourceName());
-        Predicate projected = field.project(constraint);
-        if (projected instanceof Exists || projected instanceof Range) {
-          sets.add(ImmutableSet.of((Object) projected));
-        } else if (projected instanceof In) {
-          sets.add(((In) projected).set);
-        } else {
-          // null => use alwaysTrue to signal wildcard
-          sets.add(ImmutableSet.of((Object) exists()));
-        }
-      }
-      // this is horrible...
-      this.iterable = Iterables.transform(Sets.cartesianProduct(sets),
-          new Function<List<Object>, MarkerRange>() {
-        @Override
-        public MarkerRange apply(@Nullable List<Object> values) {
-          for (int i = 0; i < values.size(); i += 1) {
-            Object value = values.get(i);
-            String name = names.get(i);
-            if (value instanceof Exists) {
-              // wildcard, which for now means don't set anything
-            } else if (value instanceof Range) {
-              low.add(name, ((Range) value).lowerEndpoint());
-              high.add(name, ((Range) value).upperEndpoint());
-            } else {
-              // it's an equality value
-              low.add(name, value);
-              high.add(name, value);
-            }
-          }
-          return new MarkerRange(new MarkerComparator(strategy))
-              .from(low.build()).to(high.build());
-        }
-      });
-    }
-
-    @Override
-    public Iterator<MarkerRange> iterator() {
-      return iterable.iterator();
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private Predicate and(Predicate previous, Range additional) {
+  private static Predicate and(Predicate previous, Range additional) {
     if (previous instanceof Range) {
       // return the intersection
       return ((Range) previous).intersection(additional);

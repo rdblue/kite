@@ -18,7 +18,6 @@ package org.kitesdk.data.spi;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -27,10 +26,11 @@ import com.google.common.collect.BoundType;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
-import java.util.AbstractMap;
 import java.util.Calendar;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import org.kitesdk.data.FieldPartitioner;
@@ -43,29 +43,30 @@ import org.slf4j.LoggerFactory;
 public class TimeDomain {
   private static final Logger LOG = LoggerFactory.getLogger(TimeDomain.class);
 
-  private static final int[] order = new int[]{
+  private static final List<Integer> order = Lists.newArrayList(
       Calendar.YEAR, Calendar.MONTH, Calendar.DAY_OF_MONTH,
       Calendar.HOUR_OF_DAY, Calendar.MINUTE, Calendar.SECOND
-  };
+  );
 
   private static final
-  LoadingCache<Map.Entry<PartitionStrategy, String>, TimeDomain> domains =
+  LoadingCache<Pair<PartitionStrategy, String>, TimeDomain> domains =
       CacheBuilder.newBuilder().build(
-          new CacheLoader<Map.Entry<PartitionStrategy, String>, TimeDomain>() {
+          new CacheLoader<Pair<PartitionStrategy, String>, TimeDomain>() {
         @Override
-        public TimeDomain load(Map.Entry<PartitionStrategy, String> entry) {
-          return new TimeDomain(entry.getKey(), entry.getValue());
+        public TimeDomain load(Pair<PartitionStrategy, String> entry) {
+          return new TimeDomain(entry.first(), entry.second());
         }
       });
 
   public static TimeDomain get(PartitionStrategy strategy, String source) {
-    return domains.getUnchecked(new AbstractMap
-        .SimpleImmutableEntry<PartitionStrategy, String>(strategy, source));
+    return domains.getUnchecked(Pair.of(strategy, source));
   }
 
+  private final PartitionStrategy strategy;
   private final List<CalendarFieldPartitioner> partitioners;
 
   public TimeDomain(PartitionStrategy strategy, String sourceName) {
+    this.strategy = strategy;
     Map<Integer, CalendarFieldPartitioner> mapping = Maps.newHashMap();
     for (FieldPartitioner fp : strategy.getFieldPartitioners()) {
       // there may be partitioners for more than one source field
@@ -132,23 +133,59 @@ public class TimeDomain {
   }
 
   private class TimeRangePredicate implements Predicate<StorageKey> {
-    private final Range<Long> timeRange;
+    private final boolean hasLower;
+    private final boolean hasUpper;
+    private final long lower;
+    private final long upper;
 
     private TimeRangePredicate(Range<Long> timeRange) {
-      this.timeRange = timeRange;
+      // adjust to a closed range to avoid catching extra keys
+      this.hasLower = timeRange.hasLowerBound();
+      if (hasLower) {
+        this.lower = timeRange.lowerEndpoint() +
+           (BoundType.CLOSED == timeRange.lowerBoundType() ? 0 : 1);
+      } else {
+        this.lower = 0;
+      }
+      this.hasUpper = timeRange.hasUpperBound();
+      if (hasUpper) {
+        this.upper = timeRange.upperEndpoint() -
+            (BoundType.CLOSED == timeRange.upperBoundType() ? 0 : 1);
+      } else {
+        this.upper = 0;
+      }
     }
+
+    public boolean isLowerBound(StorageKey key) {
+      return hasLower && boundEquals(key, lower);
+    }
+
+    public boolean isUpperBound(StorageKey key) {
+      return hasUpper && boundEquals(key, upper);
+    }
+
+    private boolean boundEquals(StorageKey key, long timestamp) {
+      for (CalendarFieldPartitioner calField : partitioners) {
+        if (calField.apply(timestamp) != key.get(calField.getName())) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // this needs a better concept: in/out/maybe
 
     @Override
     public boolean apply(@Nullable StorageKey key) {
-      Preconditions.checkNotNull(key);
-      boolean returnVal = true; // no bounds => accept
-      if (timeRange.hasLowerBound()) {
-        returnVal = checkLower(key, timeRange.lowerEndpoint() +
-            (BoundType.CLOSED == timeRange.lowerBoundType() ? 0 : 1));
+      if (key == null) {
+        return false;
       }
-      if (returnVal && timeRange.hasUpperBound()) {
-        returnVal = checkUpper(key, timeRange.upperEndpoint() -
-            (BoundType.CLOSED == timeRange.upperBoundType() ? 0 : 1));
+      boolean returnVal = true; // no bounds => accept
+      if (hasLower) {
+        returnVal = checkLower(key, lower);
+      }
+      if (returnVal && hasUpper) {
+        returnVal = checkUpper(key, upper);
       }
       return returnVal;
     }
@@ -172,6 +209,7 @@ public class TimeDomain {
     }
 
     private boolean checkUpper(StorageKey key, long timestamp) {
+      // same as checkLower, see comments there
       for (CalendarFieldPartitioner calField : partitioners) {
         int value = (Integer) key.get(calField.getName());
         int upper = calField.apply(timestamp);
@@ -186,9 +224,75 @@ public class TimeDomain {
 
     @Override
     public String toString() {
-      return Objects.toStringHelper(this)
-          .add("timeRange", timeRange)
-          .toString();
+      Objects.ToStringHelper helper = Objects.toStringHelper(this);
+      if (hasLower) {
+        helper.add("lower", lower);
+      }
+      if (hasUpper) {
+        helper.add("upper", upper);
+      }
+      return helper.toString();
+    }
+  }
+
+  Iterator<Pair<Marker.Builder, Marker.Builder>> addStackedIterator(
+      Predicate<Long> timePredicate,
+      Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+    if (timePredicate instanceof Constraints.In) {
+      return new TimeSetIterator((Constraints.In<Long>) timePredicate, partitioners, inner);
+    } else if (timePredicate instanceof Range) {
+      return new TimeRangeIterator((Range<Long>) timePredicate, partitioners, inner);
+    }
+    return null;
+  }
+
+  private static class TimeSetIterator extends
+      KeyRangeIterable.StackedIterator<Long, Pair<Marker.Builder, Marker.Builder>> {
+    private final List<CalendarFieldPartitioner> fields;
+    private TimeSetIterator(Constraints.In<Long> constraint, List<CalendarFieldPartitioner> fps,
+                            Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+      this.fields = fps;
+      setItems(constraint.getSet());
+      setInner(inner);
+    }
+
+    @Override
+    public Pair<Marker.Builder, Marker.Builder> update(
+        Pair<Marker.Builder, Marker.Builder> current, Long item) {
+      for (CalendarFieldPartitioner cfp : fields) {
+        current.first().add(cfp.getName(), cfp.apply(item));
+        current.second().add(cfp.getName(), cfp.apply(item));
+      }
+      return current;
+    }
+  }
+
+  private static class TimeRangeIterator extends
+      KeyRangeIterable.StackedIterator<Range<Long>, Pair<Marker.Builder, Marker.Builder>> {
+    private final List<CalendarFieldPartitioner> fields;
+    private TimeRangeIterator(Range<Long> timeRange, List<CalendarFieldPartitioner> fps,
+                              Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+      this.fields = fps;
+      setItem(timeRange);
+      setInner(inner);
+    }
+
+    @Override
+    public Pair<Marker.Builder, Marker.Builder> update(
+        Pair<Marker.Builder, Marker.Builder> current, Range<Long> range) {
+      // FIXME: this assumes all of the partition fields are in order
+      // This should identify out-of-order fields and alter the range
+      for (CalendarFieldPartitioner cfp : fields) {
+        boolean hasLower = range.hasLowerBound();
+        boolean hasUpper = range.hasUpperBound();
+        if (hasLower) {
+          current.first().add(cfp.getName(), cfp.apply(range.lowerEndpoint()));
+        }
+        if (hasUpper) {
+          current.second().add(cfp.getName(), cfp.apply(range.upperEndpoint()));
+        }
+      }
+      return current;
     }
   }
 }

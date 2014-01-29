@@ -296,4 +296,21 @@ public class MarkerComparator implements Comparator<Marker> {
     }
     return 0;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    MarkerComparator that = (MarkerComparator) o;
+
+    if (!strategy.equals(that.strategy)) return false;
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    return strategy.hashCode();
+  }
 }
