@@ -29,8 +29,4 @@ public interface RefineableView<E> extends View<E> {
 
   RefineableView<E> toBefore(String name, Object value);
 
-  RefineableView<E> union(View<E> other);
-
-  RefineableView<E> complement();
-
 }

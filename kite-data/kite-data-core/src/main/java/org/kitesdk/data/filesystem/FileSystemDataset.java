@@ -16,7 +16,6 @@
 package org.kitesdk.data.filesystem;
 
 import org.kitesdk.data.*;
-import org.kitesdk.data.spi.Marker;
 import org.kitesdk.data.impl.Accessor;
 import org.kitesdk.data.spi.AbstractDataset;
 import org.kitesdk.data.spi.PartitionListener;
@@ -173,16 +172,6 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
   @Override
   public FileSystemView<E> toBefore(String name, Object value) {
     return (FileSystemView<E>) unbounded.toBefore(name, value);
-  }
-
-  @Override
-  public FileSystemView<E> union(View<E> other) {
-    return (FileSystemView<E>) unbounded.union(other);
-  }
-
-  @Override
-  public FileSystemView<E> complement() {
-    return (FileSystemView<E>) unbounded.complement();
   }
 
   @Override

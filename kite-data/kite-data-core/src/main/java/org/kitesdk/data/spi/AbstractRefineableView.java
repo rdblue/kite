@@ -122,21 +122,6 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
   }
 
   @Override
-  public AbstractRefineableView<E> union(View<E> other) {
-    throw new UnsupportedOperationException("Union is not supported yet.");
-//    Preconditions.checkArgument(other instanceof AbstractRefineableView,
-//        "View must be an instance of AbstractRefineableView: " + other);
-//    AbstractRefineableView<E> abstractOther = (AbstractRefineableView<E>) other;
-//    return filter(RangePredicates.or(predicate, abstractOther.predicate));
-  }
-
-  @Override
-  public AbstractRefineableView<E> complement() {
-    throw new UnsupportedOperationException("Complement is not supported yet.");
-//    return filter(RangePredicates.not(predicate));
-  }
-
-  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;

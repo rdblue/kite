@@ -131,16 +131,6 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
   }
 
   @Override
-  public DaoView<E> union(View<E> other) {
-    return (DaoView<E>) unbounded.union(other);
-  }
-
-  @Override
-  public DaoView<E> complement() {
-    return (DaoView<E>) unbounded.complement();
-  }
-
-  @Override
   @SuppressWarnings("deprecation")
   public E get(Key key) {
     return dao.get(keyFor(getDescriptor().getPartitionStrategy(), key));
