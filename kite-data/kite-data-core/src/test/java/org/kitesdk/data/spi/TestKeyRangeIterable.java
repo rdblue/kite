@@ -24,8 +24,11 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestKeyRangeIterable {
+  private static final Logger LOG = LoggerFactory.getLogger(TestKeyRangeIterable.class);
 
   public static final PartitionStrategy id = new PartitionStrategy.Builder()
       .identity("component", String.class, 50)
@@ -66,7 +69,7 @@ public class TestKeyRangeIterable {
     Constraints c = new Constraints().with("component", "com.company.Main");
 
     Marker main = new Marker.Builder("component", "com.company.Main").build();
-    MarkerRange actual = (MarkerRange) Iterables.getOnlyElement(c.toKeyRanges(id));
+    MarkerRange actual = Iterables.<MarkerRange>getOnlyElement(c.toKeyRanges(id));
     Assert.assertEquals(main, actual.getStart().getBound());
     Assert.assertEquals(main, actual.getEnd().getBound());
     Assert.assertEquals(new MarkerRange(idCmp).of(main), actual);
@@ -96,7 +99,7 @@ public class TestKeyRangeIterable {
     Assert.assertEquals(marker0, actual.getStart().getBound());
     Assert.assertEquals(marker0, actual.getEnd().getBound());
 
-    c = new Constraints().with("id", (Object) ids);
+    c = new Constraints().with("id", (Object[]) ids);
     Marker marker1 = new Marker.Builder()
         .add("id-hash", hashFunc.apply(ids[1])).add("id", ids[1]).build();
     assertIterableEquals(
@@ -120,6 +123,18 @@ public class TestKeyRangeIterable {
   }
 
   @Test
+  public void testHashRange() {
+    Constraints c = new Constraints().from("id", "0000").toBefore("id", "0001");
+    // note the lack of a hash field -- ranges cannot be projected through hash
+    Marker start = new Marker.Builder("id", "0000").build();
+    Marker stop = new Marker.Builder("id", "0001").build();
+
+    Assert.assertEquals(
+        new MarkerRange(hashCmp).from(start).to(stop),
+        Iterables.getOnlyElement(c.toKeyRanges(hash)));
+  }
+
+  @Test
   public void testGroupRange() {
     Constraints c = new Constraints().from("number", 5).toBefore("number", 18);
     Marker start = new Marker.Builder("number", 5).build();
@@ -138,7 +153,7 @@ public class TestKeyRangeIterable {
         1384204547042l  // Mon Nov 11 13:15:47 PST 2013
     };
 
-    Constraints c = new Constraints().with("timestamp", (Object) timestamps);
+    Constraints c = new Constraints().with("timestamp", (Object[]) timestamps);
 
     Marker sep = new Marker.Builder().add("year", 2013).add("month", 9).add("day", 12).build();
     Marker oct = new Marker.Builder().add("year", 2013).add("month", 10).add("day", 12).build();
@@ -183,7 +198,7 @@ public class TestKeyRangeIterable {
 
     Constraints c = new Constraints()
         .from("timestamp", timestamps[0]).to("timestamp", timestamps[1])
-        .with("id", (Object) ids);
+        .with("id", (Object[]) ids);
 
     // first range
     Marker sep0 = new Marker.Builder()

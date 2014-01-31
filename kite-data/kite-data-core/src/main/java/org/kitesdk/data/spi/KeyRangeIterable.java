@@ -37,10 +37,12 @@ import org.kitesdk.data.partition.CalendarFieldPartitioner;
 class KeyRangeIterable implements Iterable<MarkerRange> {
   private final Map<String, Predicate> predicates;
   private final PartitionStrategy strategy;
+  private final MarkerComparator cmp;
 
   public KeyRangeIterable(PartitionStrategy strategy, Map<String, Predicate> predicates) {
     this.strategy = strategy;
     this.predicates = predicates;
+    this.cmp = new MarkerComparator(strategy);
   }
 
   @Override
@@ -50,7 +52,8 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
     final Marker.Builder high = new Marker.Builder();
 
     // this should be part of PartitionStrategy
-    final LinkedListMultimap<String, FieldPartitioner> partitioners = LinkedListMultimap.create();
+    final LinkedListMultimap<String, FieldPartitioner> partitioners =
+        LinkedListMultimap.create();
     for (FieldPartitioner fp : strategy.getFieldPartitioners()) {
       partitioners.put(fp.getSourceName(), fp);
     }
@@ -63,10 +66,10 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
       List<FieldPartitioner> fps = partitioners.get(source);
       FieldPartitioner first = fps.get(0);
       if (first instanceof CalendarFieldPartitioner) {
-        current = TimeDomain.get(strategy, first.getSourceName())
+        current = TimeDomain.get(strategy, source)
             .addStackedIterator(constraint, current);
-      } else if (constraint instanceof Constraints.In) {
-        current = add((Constraints.In) constraint, fps, current);
+      } else if (constraint instanceof Predicates.In) {
+        current = add((Predicates.In) constraint, fps, current);
       } else if (constraint instanceof Range) {
         current = add((Range) constraint, fps, current);
       }
@@ -77,7 +80,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
           @Override
           public MarkerRange apply(
               @Nullable Pair<Marker.Builder, Marker.Builder> pair) {
-            return new MarkerRange(new MarkerComparator(strategy))
+            return new MarkerRange(cmp)
                 .from(pair.first().build()).to(pair.second().build());
           }
         });
@@ -108,8 +111,8 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * @return A key range Iterator
    */
   @SuppressWarnings("unchecked")
-  private static Iterator<Pair<Marker.Builder, Marker.Builder>> add(
-      Constraints.In constraint, List<FieldPartitioner> fps,
+  static Iterator<Pair<Marker.Builder, Marker.Builder>> add(
+      Predicates.In constraint, List<FieldPartitioner> fps,
       Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
 
     Iterator<Pair<Marker.Builder, Marker.Builder>> current = inner;
@@ -118,7 +121,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
       Predicate<?> projected = fp.project(constraint);
       if (projected instanceof Range) {
         current = addProjected(projected, fp.getName(), current);
-      } else if (projected instanceof Constraints.In) {
+      } else if (projected instanceof Predicates.In) {
         compatible.add(fp);
       }
       // otherwise, all fields are included, so don't add anything
@@ -150,7 +153,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * @return A key range Iterator
    */
   @SuppressWarnings("unchecked")
-  private static Iterator<Pair<Marker.Builder, Marker.Builder>> add(
+  static Iterator<Pair<Marker.Builder, Marker.Builder>> add(
       Range constraint, List<FieldPartitioner> fps,
       Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
 
@@ -158,7 +161,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
     List<Pair<String, Range>> compatible = Lists.newArrayList();
     for (FieldPartitioner fp : fps) {
       Predicate<?> projected = fp.project(constraint);
-      if (projected instanceof Constraints.In) {
+      if (projected instanceof Predicates.In) {
         current = addProjected(projected, fp.getName(), current);
       } else if (projected instanceof Range) {
         compatible.add(Pair.of(fp.getName(), (Range) projected));
@@ -191,8 +194,8 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
   private static Iterator<Pair<Marker.Builder, Marker.Builder>> addProjected(
       Predicate projected, String name,
       Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
-    if (projected instanceof Constraints.In) {
-      return new SetIterator((Constraints.In) projected, name, inner);
+    if (projected instanceof Predicates.In) {
+      return new SetIterator((Predicates.In) projected, name, inner);
     } else if (projected instanceof Range) {
       return new RangeIterator(name, (Range) projected, inner);
     } else {
@@ -287,7 +290,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
      * @param inner An {@code Iterator} to wrap
      */
     @SuppressWarnings("unchecked")
-    private SetIterator(Constraints.In projected, String name,
+    private SetIterator(Predicates.In projected, String name,
                        Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
       this.name = name;
       setItems(projected.getSet());
@@ -340,7 +343,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
      * @param inner An {@code Iterator} to wrap
      */
     @SuppressWarnings("unchecked")
-    protected SetGroupIterator(Constraints.In constraint, List<FieldPartitioner> fps,
+    SetGroupIterator(Predicates.In constraint, List<FieldPartitioner> fps,
                             Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
       this.fields = fps;
       setItems(constraint.getSet());

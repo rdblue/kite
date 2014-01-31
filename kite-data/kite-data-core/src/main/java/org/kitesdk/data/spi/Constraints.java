@@ -16,13 +16,10 @@
 
 package org.kitesdk.data.spi;
 
-import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Ranges;
@@ -44,6 +41,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A set of simultaneous constraints.
+ *
+ * This class accumulates and manages a set of logical constraints.
  */
 @Immutable
 public class Constraints<E> implements Predicate<E> {
@@ -51,94 +50,6 @@ public class Constraints<E> implements Predicate<E> {
   private static final Logger LOG = LoggerFactory.getLogger(Constraints.class);
 
   private final Map<String, Predicate> constraints;
-
-  public static class Exists<T> implements Predicate<T> {
-    public static final Exists INSTANCE = new Exists();
-
-    private Exists() {
-    }
-
-    @Override
-    public boolean apply(@Nullable T value) {
-      return (value != null);
-    }
-
-    @Override
-    public String toString() {
-      return Objects.toStringHelper(this).toString();
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  public static <T> Exists<T> exists() {
-    return (Exists<T>) Exists.INSTANCE;
-  }
-
-  public static class In<T> implements Predicate<T> {
-    // ImmutableSet entries are non-null
-    private final ImmutableSet<T> set;
-
-    private In(Iterable<T> values) {
-      this.set = ImmutableSet.copyOf(values);
-      Preconditions.checkArgument(set.size() > 0, "No values to match");
-    }
-
-    private In(T... values) {
-      this.set = ImmutableSet.copyOf(values);
-    }
-
-    @Override
-    public boolean apply(@Nullable T test) {
-      // Set#contains may throw NPE, depending on implementation
-      return (test != null) && set.contains(test);
-    }
-
-    public In<T> filter(Predicate<T> predicate) {
-      try {
-        return new In<T>(Iterables.filter(set, predicate));
-      } catch (IllegalArgumentException e) {
-        throw new IllegalArgumentException(
-            "Filter predicate produces empty set", e);
-      }
-    }
-
-    public <V> In<V> transform(Function<T, V> function) {
-      return new In<V>(Iterables.transform(set, function));
-    }
-
-    Set<T> getSet() {
-      return set;
-    }
-
-    @Override
-    public String toString() {
-      return Objects.toStringHelper(this).add("set", set).toString();
-    }
-  }
-
-  public static <T> In<T> in(Set<T> set) {
-    return new In<T>(set);
-  }
-
-  // This should be a method on Range, like In#transform.
-  // Unfortunately, Range is final so we will probably need to re-implement it.
-  @SuppressWarnings("unchecked")
-  public static <S extends Comparable, T extends Comparable>
-  Range<T> rangeTransformClosed(Range<S> range, Function<S, T> function) {
-    if (range.hasLowerBound()) {
-      if (range.hasUpperBound()) {
-        return Ranges.closed(
-            function.apply(range.lowerEndpoint()),
-            function.apply(range.upperEndpoint()));
-      } else {
-        return Ranges.atLeast(function.apply(range.lowerEndpoint()));
-      }
-    } else if (range.hasUpperBound()) {
-      return Ranges.atMost(function.apply(range.upperEndpoint()));
-    } else {
-      return Ranges.all();
-    }
-  }
 
   public Constraints() {
     this.constraints = ImmutableMap.of();
@@ -233,11 +144,11 @@ public class Constraints<E> implements Predicate<E> {
     if (values.length > 0) {
       checkContained(name, values);
       // this is the most specific constraint and is idempotent under "and"
-      return new Constraints<E>(constraints, name, new In<Object>(values));
+      return new Constraints<E>(constraints, name, new Predicates.In<Object>(values));
     } else {
       if (!constraints.containsKey(name)) {
         // no other constraint => add the exists
-        return new Constraints<E>(constraints, name, exists());
+        return new Constraints<E>(constraints, name, Predicates.exists());
       } else {
         // satisfied by an existing constraint
         return this;
@@ -294,10 +205,10 @@ public class Constraints<E> implements Predicate<E> {
     if (previous instanceof Range) {
       // return the intersection
       return ((Range) previous).intersection(additional);
-    } else if (previous instanceof In) {
+    } else if (previous instanceof Predicates.In) {
       // filter the set using the range
-      return new In(((In) previous).filter(additional));
-    } else if (previous instanceof Exists) {
+      return ((Predicates.In) previous).filter(additional);
+    } else if (previous instanceof Predicates.Exists) {
       // exists is the weakest constraint, satisfied by any existing constraint
       // all values in the range are non-null
       return additional;

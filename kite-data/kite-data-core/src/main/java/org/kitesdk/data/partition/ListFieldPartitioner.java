@@ -23,7 +23,7 @@ import com.google.common.collect.Sets;
 import java.util.List;
 import java.util.Set;
 import org.kitesdk.data.FieldPartitioner;
-import org.kitesdk.data.spi.Constraints;
+import org.kitesdk.data.spi.Predicates;
 
 @Beta
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(
@@ -70,10 +70,10 @@ public class ListFieldPartitioner<S> extends FieldPartitioner<S, Integer> {
   @Override
   @SuppressWarnings("unchecked")
   public Predicate<Integer> project(Predicate<S> predicate) {
-    if (predicate instanceof Constraints.Exists) {
-      return Constraints.exists();
-    } else if (predicate instanceof Constraints.In) {
-      return ((Constraints.In<S>) predicate).transform(this);
+    if (predicate instanceof Predicates.Exists) {
+      return Predicates.exists();
+    } else if (predicate instanceof Predicates.In) {
+      return ((Predicates.In<S>) predicate).transform(this);
     } else if (predicate instanceof Range) {
       Range range = (Range) predicate;
       Set<Integer> possibleValues = Sets.newHashSet();
@@ -85,7 +85,7 @@ public class ListFieldPartitioner<S> extends FieldPartitioner<S, Integer> {
           }
         }
       }
-      return Constraints.in(possibleValues);
+      return Predicates.in(possibleValues);
     } else {
       return null;
     }

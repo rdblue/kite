@@ -30,7 +30,6 @@ import java.util.Calendar;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import org.kitesdk.data.FieldPartitioner;
@@ -90,8 +89,8 @@ public class TimeDomain {
   }
 
   public Predicate<StorageKey> project(Predicate<Long> predicate) {
-    if (predicate instanceof Constraints.In) {
-      return new TimeSetPredicate((Constraints.In<Long>) predicate);
+    if (predicate instanceof Predicates.In) {
+      return new TimeSetPredicate((Predicates.In<Long>) predicate);
     } else if (predicate instanceof Range) {
       return new TimeRangePredicate((Range<Long>) predicate);
     } else {
@@ -100,9 +99,9 @@ public class TimeDomain {
   }
 
   private class TimeSetPredicate implements Predicate<StorageKey> {
-    private final Constraints.In<List<Integer>> times;
+    private final Predicates.In<List<Integer>> times;
 
-    private TimeSetPredicate(Constraints.In<Long> times) {
+    private TimeSetPredicate(Predicates.In<Long> times) {
       this.times = times.transform(new Function<Long, List<Integer>>() {
         @Override
         public List<Integer> apply(@Nullable Long timestamp) {
@@ -235,36 +234,20 @@ public class TimeDomain {
     }
   }
 
+  @SuppressWarnings("unchecked")
   Iterator<Pair<Marker.Builder, Marker.Builder>> addStackedIterator(
       Predicate<Long> timePredicate,
       Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
-    if (timePredicate instanceof Constraints.In) {
-      return new TimeSetIterator((Constraints.In<Long>) timePredicate, partitioners, inner);
+    if (timePredicate instanceof Predicates.In) {
+      // normal group handling is sufficient for a set of specific times
+      // instantiate directly because the add method projects the predicate
+      return new KeyRangeIterable.SetGroupIterator(
+          (Predicates.In) timePredicate, (List) partitioners, inner);
     } else if (timePredicate instanceof Range) {
-      return new TimeRangeIterator((Range<Long>) timePredicate, partitioners, inner);
+      return new TimeRangeIterator(
+          (Range<Long>) timePredicate, partitioners, inner);
     }
     return null;
-  }
-
-  private static class TimeSetIterator extends
-      KeyRangeIterable.StackedIterator<Long, Pair<Marker.Builder, Marker.Builder>> {
-    private final List<CalendarFieldPartitioner> fields;
-    private TimeSetIterator(Constraints.In<Long> constraint, List<CalendarFieldPartitioner> fps,
-                            Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
-      this.fields = fps;
-      setItems(constraint.getSet());
-      setInner(inner);
-    }
-
-    @Override
-    public Pair<Marker.Builder, Marker.Builder> update(
-        Pair<Marker.Builder, Marker.Builder> current, Long item) {
-      for (CalendarFieldPartitioner cfp : fields) {
-        current.first().add(cfp.getName(), cfp.apply(item));
-        current.second().add(cfp.getName(), cfp.apply(item));
-      }
-      return current;
-    }
   }
 
   private static class TimeRangeIterator extends

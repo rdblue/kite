@@ -19,7 +19,7 @@ import com.google.common.base.Predicate;
 import org.kitesdk.data.FieldPartitioner;
 
 import com.google.common.base.Objects;
-import org.kitesdk.data.spi.Constraints;
+import org.kitesdk.data.spi.Predicates;
 
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(value={
         "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE",
@@ -48,10 +48,10 @@ public class HashFieldPartitioner extends FieldPartitioner<Object, Integer> {
 
   @Override
   public Predicate<Integer> project(Predicate<Object> predicate) {
-    if (predicate instanceof Constraints.Exists) {
-      return Constraints.exists();
-    } else if (predicate instanceof Constraints.In) {
-      return ((Constraints.In<Object>) predicate).transform(this);
+    if (predicate instanceof Predicates.Exists) {
+      return Predicates.exists();
+    } else if (predicate instanceof Predicates.In) {
+      return ((Predicates.In<Object>) predicate).transform(this);
     } else {
       // cannot enumerate ranges and get the image
       return null;
