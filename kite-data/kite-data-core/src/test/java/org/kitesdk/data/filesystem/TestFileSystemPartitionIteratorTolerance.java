@@ -21,7 +21,6 @@ import org.kitesdk.data.MiniDFSTest;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.spi.StorageKey;
 import org.kitesdk.data.spi.MarkerComparator;
-import org.kitesdk.data.spi.RangePredicates;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
