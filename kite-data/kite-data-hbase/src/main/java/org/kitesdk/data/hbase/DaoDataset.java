@@ -20,7 +20,6 @@ import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.Key;
-import org.kitesdk.data.spi.Marker;
 import org.kitesdk.data.PartitionKey;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.RandomAccessDataset;
@@ -117,18 +116,8 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
   }
 
   @Override
-  public DaoView<E> from(String[] names, Object... values) {
-    return (DaoView<E>) unbounded.from(names, values);
-  }
-
-  @Override
   public DaoView<E> fromAfter(String name, Object value) {
     return (DaoView<E>) unbounded.fromAfter(name, value);
-  }
-
-  @Override
-  public DaoView<E> fromAfter(String[] names, Object... values) {
-    return (DaoView<E>) unbounded.fromAfter(names, values);
   }
 
   @Override
@@ -137,23 +126,8 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
   }
 
   @Override
-  public DaoView<E> to(String[] names, Object... values) {
-    return (DaoView<E>) unbounded.to(names, values);
-  }
-
-  @Override
   public DaoView<E> toBefore(String name, Object value) {
     return (DaoView<E>) unbounded.toBefore(name, value);
-  }
-
-  @Override
-  public DaoView<E> toBefore(String[] names, Object... values) {
-    return (DaoView<E>) unbounded.toBefore(names, values);
-  }
-
-  @Override
-  public DaoView<E> of(String[] names, Object... values) {
-    return (DaoView<E>) unbounded.of(names, values);
   }
 
   @Override

@@ -15,6 +15,7 @@
  */
 package org.kitesdk.data.hbase;
 
+import com.google.common.collect.Iterables;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.FieldPartitioner;
@@ -22,10 +23,10 @@ import org.kitesdk.data.PartitionKey;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.View;
 import org.kitesdk.data.spi.AbstractRefineableView;
+import org.kitesdk.data.spi.Constraints;
 import org.kitesdk.data.spi.StorageKey;
 import org.kitesdk.data.spi.Marker;
 import org.kitesdk.data.spi.MarkerRange;
-import org.kitesdk.data.spi.RangePredicate;
 import java.util.List;
 
 class DaoView<E> extends AbstractRefineableView<E> {
@@ -37,19 +38,23 @@ class DaoView<E> extends AbstractRefineableView<E> {
     this.dataset = dataset;
   }
 
-  private DaoView(DaoView<E> view, RangePredicate p) {
-    super(view, p);
+  private DaoView(DaoView<E> view, Constraints constraints) {
+    super(view, constraints);
     this.dataset = view.dataset;
   }
 
   @Override
-  protected DaoView<E> filter(RangePredicate p) {
-    return new DaoView<E>(this, p);
+  protected DaoView<E> filter(Constraints constraints) {
+    return new DaoView<E>(this, constraints);
   }
 
   @Override
   public DatasetReader<E> newReader() {
-    MarkerRange range = predicate.getRange();
+    PartitionStrategy partitionStrategy = dataset.getDescriptor().getPartitionStrategy();
+    Iterable<MarkerRange> markerRanges = constraints.toKeyRanges(partitionStrategy);
+    // TODO: combine all ranges into a single reader
+    MarkerRange range = Iterables.getOnlyElement(markerRanges);
+    System.out.println("tomw range " + range);
     return dataset.getDao().getScanner(toPartitionKey(range.getStart()),
         range.getStart().isInclusive(), toPartitionKey(range.getEnd()),
         range.getEnd().isInclusive());
@@ -70,9 +75,8 @@ class DaoView<E> extends AbstractRefineableView<E> {
       @Override
       public void write(E entity) {
         StorageKey key = partitionStratKey.reuseFor(entity);
-        if (!predicate.apply(key)) {
-          throw new IllegalArgumentException("View does not contain entity: "
-              + entity);
+        if (!constraints.toKeyPredicate().apply(key)) {
+          throw new IllegalArgumentException("View does not contain entity: " + entity);
         }
         wrappedWriter.write(entity);
       }

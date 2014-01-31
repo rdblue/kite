@@ -266,6 +266,11 @@ public class Constraints {
           name.substring(0, 1).toUpperCase(Locale.ENGLISH) +
           name.substring(1);
     }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this).addValue(predicates).toString();
+    }
   }
 
   /**
@@ -321,6 +326,11 @@ public class Constraints {
 
       // if we made it this far, everything passed
       return true;
+    }
+
+    @Override
+    public String toString() {
+      return Objects.toStringHelper(this).addValue(predicates).toString();
     }
   }
 }
