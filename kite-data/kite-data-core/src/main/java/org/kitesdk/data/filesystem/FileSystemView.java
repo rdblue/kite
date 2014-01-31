@@ -51,14 +51,14 @@ class FileSystemView<E> extends AbstractRefineableView<E> {
     this.root = dataset.getDirectory();
   }
 
-  private FileSystemView(FileSystemView<E> view, Constraints<E> c) {
+  private FileSystemView(FileSystemView<E> view, Constraints c) {
     super(view, c);
     this.fs = view.fs;
     this.root = view.root;
   }
 
   @Override
-  protected FileSystemView<E> filter(Constraints<E> c) {
+  protected FileSystemView<E> filter(Constraints c) {
     return new FileSystemView<E>(this, c);
   }
 

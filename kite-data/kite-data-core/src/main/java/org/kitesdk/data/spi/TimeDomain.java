@@ -62,6 +62,7 @@ public class TimeDomain {
   }
 
   private final PartitionStrategy strategy;
+  // the calendar field partitioners from the strategy, in the correct order
   private final List<CalendarFieldPartitioner> partitioners;
 
   public TimeDomain(PartitionStrategy strategy, String sourceName) {

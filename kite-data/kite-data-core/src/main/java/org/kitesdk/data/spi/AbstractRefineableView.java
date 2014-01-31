@@ -16,6 +16,7 @@
 
 package org.kitesdk.data.spi;
 
+import com.google.common.base.Predicate;
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
 import com.google.common.base.Objects;
@@ -38,7 +39,8 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
 
   protected final Dataset<E> dataset;
   protected final MarkerComparator comparator;
-  protected final Constraints<E> constraints;
+  protected final Constraints constraints;
+  protected final Predicate<E> entityTest;
 
   // This class is Immutable and must be thread-safe
   protected final ThreadLocal<StorageKey> keys;
@@ -58,18 +60,20 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
       this.comparator = null;
       this.keys = null;
     }
-    this.constraints = new Constraints<E>();
+    this.constraints = new Constraints();
+    this.entityTest = constraints.toEntityPredicate();
   }
 
-  protected AbstractRefineableView(AbstractRefineableView<E> view, Constraints<E> constraints) {
+  protected AbstractRefineableView(AbstractRefineableView<E> view, Constraints constraints) {
     this.dataset = view.dataset;
     this.comparator = view.comparator;
     this.constraints = constraints;
+    this.entityTest = constraints.toEntityPredicate();
     // thread-safe, so okay to reuse when views share a partition strategy
     this.keys = view.keys;
   }
 
-  protected abstract AbstractRefineableView<E> filter(Constraints<E> c);
+  protected abstract AbstractRefineableView<E> filter(Constraints c);
 
   @Override
   public Dataset<E> getDataset() {
@@ -84,7 +88,7 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
 
   @Override
   public boolean contains(E entity) {
-    return constraints.contains(entity);
+    return entityTest.apply(entity);
   }
 
   @Override

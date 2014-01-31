@@ -86,39 +86,41 @@ public class TestConstraints {
     GenericEvent e = new GenericEvent();
     StorageKey key = new StorageKey(strategy).reuseFor(e);
 
-    Constraints<GenericEvent> time = new Constraints<GenericEvent>()
+    Constraints time = new Constraints()
         .from("timestamp", START)
         .to("timestamp", START + 100000);
-    Assert.assertTrue(time.matchesKey(key));
-    Assert.assertTrue(time.contains(e));
+    Predicate<StorageKey> matchKeys = time.toKeyPredicate();
+    Predicate<GenericEvent> matchEvents = time.toEntityPredicate();
+    Assert.assertTrue(matchKeys.apply(key));
+    Assert.assertTrue(matchEvents.apply(e));
 
-    Constraints<GenericEvent> timeAndUUID = time.with("id", e.getId());
-    Assert.assertTrue(timeAndUUID.matchesKey(key));
-    Assert.assertTrue(timeAndUUID.contains(e));
+    Constraints timeAndUUID = time.with("id", e.getId());
+    Assert.assertTrue(timeAndUUID.toKeyPredicate().apply(key));
+    Assert.assertTrue(timeAndUUID.toEntityPredicate().apply(e));
 
     // just outside the actual range should match partition but not event
     e.timestamp = START - 1;
     key.reuseFor(e);
-    Assert.assertFalse(time.contains(e));
-    Assert.assertFalse(timeAndUUID.contains(e));
-    Assert.assertTrue(time.matchesKey(key));
-    Assert.assertTrue(timeAndUUID.matchesKey(key));
+    Assert.assertFalse(time.toEntityPredicate().apply(e));
+    Assert.assertFalse(timeAndUUID.toEntityPredicate().apply(e));
+    Assert.assertTrue(time.toKeyPredicate().apply(key));
+    Assert.assertTrue(timeAndUUID.toKeyPredicate().apply(key));
 
     // just outside the actual range should match partition but not event
     e.timestamp = START - 100001;
     key.reuseFor(e);
-    Assert.assertFalse(time.contains(e));
-    Assert.assertFalse(timeAndUUID.contains(e));
-    Assert.assertTrue(time.matchesKey(key));
-    Assert.assertTrue(timeAndUUID.matchesKey(key));
+    Assert.assertFalse(time.toEntityPredicate().apply(e));
+    Assert.assertFalse(timeAndUUID.toEntityPredicate().apply(e));
+    Assert.assertTrue(time.toKeyPredicate().apply(key));
+    Assert.assertTrue(timeAndUUID.toKeyPredicate().apply(key));
 
     // a different day will cause the partition to stop matching
     e.timestamp = START - ONE_DAY_MILLIS;
     key.reuseFor(e);
-    Assert.assertFalse(time.contains(e));
-    Assert.assertFalse(timeAndUUID.contains(e));
-    Assert.assertFalse(time.matchesKey(key));
-    Assert.assertFalse(timeAndUUID.matchesKey(key));
+    Assert.assertFalse(time.toEntityPredicate().apply(e));
+    Assert.assertFalse(timeAndUUID.toEntityPredicate().apply(e));
+    Assert.assertFalse(time.toKeyPredicate().apply(key));
+    Assert.assertFalse(timeAndUUID.toKeyPredicate().apply(key));
   }
 
   @Test
@@ -133,7 +135,7 @@ public class TestConstraints {
     StorageKey key = new StorageKey(timeOnly).reuseFor(e);
 
     Constraints c = new Constraints().with("timestamp", oct_24_2013);
-    Assert.assertFalse("Should not match", c.matchesKey(key));
+    Assert.assertFalse("Should not match", c.toKeyPredicate().apply(key));
 
     c = new Constraints().toBefore("timestamp", oct_25_2013);
     c = new Constraints().toBefore("timestamp", oct_24_2013_end);
@@ -141,6 +143,6 @@ public class TestConstraints {
 
     e.timestamp = oct_25_2013;
     key.reuseFor(e);
-    Assert.assertFalse("Should not match toBefore", c.matchesKey(key));
+    Assert.assertFalse("Should not match toBefore", c.toKeyPredicate().apply(key));
   }
 }

@@ -16,17 +16,13 @@
 
 package org.kitesdk.data.filesystem;
 
-import javax.annotation.Nullable;
 import org.kitesdk.data.DatasetException;
 import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.spi.Constraints;
 import org.kitesdk.data.spi.StorageKey;
-import org.kitesdk.data.spi.MarkerRange;
-import org.kitesdk.data.spi.RangePredicate;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -49,18 +45,6 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
   private final FileSystem fs;
   private final Path rootDirectory;
   private final Iterator<StorageKey> iterator;
-
-  private static class KeyPredicate implements Predicate<StorageKey> {
-    private final Constraints constraints;
-
-    public KeyPredicate(Constraints constraints) {
-      this.constraints = constraints;
-    }
-
-    @Override public boolean apply(@Nullable StorageKey key) {
-      return constraints.matchesKey(key);
-    }
-  }
 
   class FileSystemIterator extends MultiLevelIterator<String> {
     public FileSystemIterator(int depth) throws IOException {
@@ -132,7 +116,7 @@ class FileSystemPartitionIterator implements Iterator<StorageKey>, Iterable<Stor
         Iterators.transform(
             new FileSystemIterator(strategy.getFieldPartitioners().size()),
             new MakeKey(strategy)),
-        new KeyPredicate(constraints));
+        constraints.toKeyPredicate());
   }
 
   @Override

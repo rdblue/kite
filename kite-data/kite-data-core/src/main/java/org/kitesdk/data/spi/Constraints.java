@@ -45,7 +45,7 @@ import org.slf4j.LoggerFactory;
  * This class accumulates and manages a set of logical constraints.
  */
 @Immutable
-public class Constraints<E> implements Predicate<E> {
+public class Constraints {
 
   private static final Logger LOG = LoggerFactory.getLogger(Constraints.class);
 
@@ -62,93 +62,55 @@ public class Constraints<E> implements Predicate<E> {
     this.constraints = ImmutableMap.copyOf(copy);
   }
 
-  @Override
-  public boolean apply(@Nullable E value) {
-    return contains(value);
+  /**
+   * Get a {@link Predicate} for testing entity objects.
+   *
+   * @param <E> The type of entities to be matched
+   * @return a Predicate to test if entity objects satisfy this constraint set
+   */
+  public <E> Predicate<E> toEntityPredicate() {
+    // TODO: Filter constraints that are definitely satisfied by a StorageKey
+    return new EntityPredicate<E>(constraints);
   }
 
-  @SuppressWarnings("unchecked")
-  public boolean contains(@Nullable E entity) {
-    if (entity == null) {
-      return false;
-    }
-    // check each constraint and fail immediately
-    for (Map.Entry<String, Predicate> entry : constraints.entrySet()) {
-      if (!entry.getValue().apply(get(entity, entry.getKey()))) {
-        return false;
-      }
-    }
-    // all constraints were satisfied
-    return true;
+  /**
+   * Get a {@link Predicate} that tests {@link StorageKey} objects.
+   *
+   * If a {@code StorageKey} matches the predicate, it <em>may</em> represent a
+   * partition that is responsible for entities that match this set of
+   * constraints. If it does not match the predicate, it cannot be responsible
+   * for entities that match this constraint set.
+   *
+   * @return a Predicate for testing StorageKey objects
+   */
+  public Predicate<StorageKey> toKeyPredicate() {
+    return new KeyPredicate(constraints);
   }
 
-  @SuppressWarnings("unchecked")
-  public boolean matchesKey(StorageKey key) {
-    if (key == null) {
-      return false;
-    }
-
-    PartitionStrategy strategy = key.getPartitionStrategy();
-    // The constraints are in terms of the data, and the partition functions
-    // are one-way functions from data to partition fields. This means that we
-    // need to translate, using each function, from the data domain to the
-    // partition domain (e.g., hash partition function).
-    //
-    // strategy to consider: hash(time) / month(time) / year(time) / day(time)
-    // another: weekday(time) / year(time) / month(time) / day(time)
-
-    // time fields that affect the partition strategy
-    Set<String> timeFields = Sets.newHashSet();
-
-    // this is fail-fast: if the key fails a constraint, then drop it
-    for (FieldPartitioner fp : strategy.getFieldPartitioners()) {
-      Predicate constraint = constraints.get(fp.getSourceName());
-
-      if (constraint == null) {
-        // no constraints => anything matches
-        continue;
-      }
-
-      Object pValue = key.get(fp.getName());
-
-      if (fp instanceof CalendarFieldPartitioner) {
-        timeFields.add(fp.getSourceName());
-      }
-
-      Predicate projectedConstraint = fp.project(constraint);
-      if (projectedConstraint != null && !(projectedConstraint.apply(pValue))) {
-        return false;
-      }
-    }
-
-    // check multi-field time groups
-    for (String sourceName : timeFields) {
-      Predicate<StorageKey> timePredicate = TimeDomain
-          .get(strategy, sourceName)
-          .project(constraints.get(sourceName));
-      if (timePredicate != null && !timePredicate.apply(key)) {
-        return false;
-      }
-    }
-
-    // if we made it this far, everything passed
-    return true;
-  }
-
+  /**
+   * Get a set of {@link MarkerRange} objects that covers the set of possible
+   * {@link StorageKey} partitions for this constraint set, with respect to the
+   * give {@link PartitionStrategy}. If a {@code StorageKey} is not in one of
+   * the ranges returned by this method, then its partition cannot contain
+   * entities that satisfy this constraint set.
+   *
+   * @param strategy a PartitionStrategy
+   * @return an Iterable of MarkerRange
+   */
   public Iterable<MarkerRange> toKeyRanges(PartitionStrategy strategy) {
     return new KeyRangeIterable(strategy, constraints);
   }
 
   @SuppressWarnings("unchecked")
-  public Constraints<E> with(String name, Object... values) {
+  public Constraints with(String name, Object... values) {
     if (values.length > 0) {
       checkContained(name, values);
       // this is the most specific constraint and is idempotent under "and"
-      return new Constraints<E>(constraints, name, new Predicates.In<Object>(values));
+      return new Constraints(constraints, name, new Predicates.In<Object>(values));
     } else {
       if (!constraints.containsKey(name)) {
         // no other constraint => add the exists
-        return new Constraints<E>(constraints, name, Predicates.exists());
+        return new Constraints(constraints, name, Predicates.exists());
       } else {
         // satisfied by an existing constraint
         return this;
@@ -156,48 +118,64 @@ public class Constraints<E> implements Predicate<E> {
     }
   }
 
-  public Constraints<E> from(String name, Comparable value) {
+  public Constraints from(String name, Comparable value) {
     checkContained(name, value);
     Range added = Ranges.atLeast(value);
     if (constraints.containsKey(name)) {
-      return new Constraints<E>(constraints, name,
+      return new Constraints(constraints, name,
           and(constraints.get(name), added));
     } else {
-      return new Constraints<E>(constraints, name, added);
+      return new Constraints(constraints, name, added);
     }
   }
 
-  public Constraints<E> fromAfter(String name, Comparable value) {
+  public Constraints fromAfter(String name, Comparable value) {
     checkContained(name, value);
     Range added = Ranges.greaterThan(value);
     if (constraints.containsKey(name)) {
-      return new Constraints<E>(constraints, name,
+      return new Constraints(constraints, name,
           and(constraints.get(name), added));
     } else {
-      return new Constraints<E>(constraints, name, added);
+      return new Constraints(constraints, name, added);
     }
   }
 
-  public Constraints<E> to(String name, Comparable value) {
+  public Constraints to(String name, Comparable value) {
     checkContained(name, value);
     Range added = Ranges.atMost(value);
     if (constraints.containsKey(name)) {
-      return new Constraints<E>(constraints, name,
+      return new Constraints(constraints, name,
           and(constraints.get(name), added));
     } else {
-      return new Constraints<E>(constraints, name, added);
+      return new Constraints(constraints, name, added);
     }
   }
 
-  public Constraints<E> toBefore(String name, Comparable value) {
+  public Constraints toBefore(String name, Comparable value) {
     checkContained(name, value);
     Range added = Ranges.lessThan(value);
     if (constraints.containsKey(name)) {
-      return new Constraints<E>(constraints, name,
+      return new Constraints(constraints, name,
           and(constraints.get(name), added));
     } else {
-      return new Constraints<E>(constraints, name, added);
+      return new Constraints(constraints, name, added);
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  private void checkContained(String name, Object... values) {
+    for (Object value : values) {
+      if (constraints.containsKey(name)) {
+        Predicate current = constraints.get(name);
+        Preconditions.checkArgument(current.apply(value),
+            "%s does not match %s", current, value);
+      }
+    }
+  }
+
+  @Override
+  public String toString() {
+    return Objects.toStringHelper(this).addValue(constraints).toString();
   }
 
   @SuppressWarnings("unchecked")
@@ -218,46 +196,131 @@ public class Constraints<E> implements Predicate<E> {
     }
   }
 
-  @SuppressWarnings("unchecked")
-  private void checkContained(String name, Object... values) {
-    for (Object value : values) {
-      if (constraints.containsKey(name)) {
-        Predicate current = constraints.get(name);
-        Preconditions.checkArgument(current.apply(value),
-            "%s does not match %s", current, value);
+  /**
+   * A {@link Predicate} for testing entities against a set of predicates.
+   *
+   * @param <E> The type of entities this predicate tests
+   */
+  private static class EntityPredicate<E> implements Predicate<E> {
+    private final Map<String, Predicate> predicates;
+
+    public EntityPredicate(Map<String, Predicate> predicates) {
+      this.predicates = predicates;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public boolean apply(@Nullable E entity) {
+      if (entity == null) {
+        return false;
       }
+      // check each constraint and fail immediately
+      for (Map.Entry<String, Predicate> entry : predicates.entrySet()) {
+        if (!entry.getValue().apply(get(entity, entry.getKey()))) {
+          return false;
+        }
+      }
+      // all constraints were satisfied
+      return true;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null || !getClass().equals(obj.getClass())) {
+        return false;
+      }
+      return Objects.equal(predicates, ((EntityPredicate) obj).predicates);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(predicates);
+    }
+
+    private static Object get(Object entity, String name) {
+      if (entity instanceof GenericRecord) {
+        return ((GenericRecord) entity).get(name);
+      } else {
+        try {
+          PropertyDescriptor propertyDescriptor = new PropertyDescriptor(name,
+              entity.getClass(), getter(name), null /* assume read only */);
+          return propertyDescriptor.getReadMethod().invoke(entity);
+        } catch (IllegalAccessException e) {
+          throw new IllegalStateException("Cannot read property " + name +
+              " from " + entity, e);
+        } catch (InvocationTargetException e) {
+          throw new IllegalStateException("Cannot read property " + name +
+              " from " + entity, e);
+        } catch (IntrospectionException e) {
+          throw new IllegalStateException("Cannot read property " + name +
+              " from " + entity, e);
+        }
+      }
+    }
+
+    private static String getter(String name) {
+      return "get" +
+          name.substring(0, 1).toUpperCase(Locale.ENGLISH) +
+          name.substring(1);
     }
   }
 
-  private static Object get(Object entity, String name) {
-    if (entity instanceof GenericRecord) {
-      return ((GenericRecord) entity).get(name);
-    } else {
-      try {
-        PropertyDescriptor propertyDescriptor = new PropertyDescriptor(name,
-            entity.getClass(), getter(name), null /* assume read only */);
-        return propertyDescriptor.getReadMethod().invoke(entity);
-      } catch (IllegalAccessException e) {
-        throw new IllegalStateException("Cannot read property " + name +
-            " from " + entity, e);
-      } catch (InvocationTargetException e) {
-        throw new IllegalStateException("Cannot read property " + name +
-            " from " + entity, e);
-      } catch (IntrospectionException e) {
-        throw new IllegalStateException("Cannot read property " + name +
-            " from " + entity, e);
-      }
+  /**
+   * A {@link Predicate} for testing a {@link StorageKey} against a set of
+   * predicates.
+   */
+  private static class KeyPredicate implements Predicate<StorageKey> {
+    private final Map<String, Predicate> predicates;
+
+    private KeyPredicate(Map<String, Predicate> predicates) {
+      this.predicates = predicates;
     }
-  }
 
-  private static String getter(String name) {
-    return "get" +
-        name.substring(0, 1).toUpperCase(Locale.ENGLISH) +
-        name.substring(1);
-  }
+    @Override
+    @SuppressWarnings("unchecked")
+    public boolean apply(StorageKey key) {
+      if (key == null) {
+        return false;
+      }
+      PartitionStrategy strategy = key.getPartitionStrategy();
+      // (source) time fields that affect the partition strategy
+      Set<String> timeFields = Sets.newHashSet();
 
-  @Override
-  public String toString() {
-    return Objects.toStringHelper(this).addValue(constraints).toString();
+      // this is fail-fast: if the key fails a constraint, then drop it
+      for (FieldPartitioner fp : strategy.getFieldPartitioners()) {
+        Predicate constraint = predicates.get(fp.getSourceName());
+        if (constraint == null) {
+          // no constraints => anything matches
+          continue;
+        }
+
+        Object pValue = key.get(fp.getName());
+
+        if (fp instanceof CalendarFieldPartitioner) {
+          timeFields.add(fp.getSourceName());
+        }
+
+        Predicate projectedConstraint = fp.project(constraint);
+        if (projectedConstraint != null && !(projectedConstraint.apply(pValue))) {
+          return false;
+        }
+      }
+
+      // check multi-field time groups
+      for (String sourceName : timeFields) {
+        Predicate<StorageKey> timePredicate = TimeDomain
+            .get(strategy, sourceName)
+            .project(predicates.get(sourceName));
+        if (timePredicate != null && !timePredicate.apply(key)) {
+          return false;
+        }
+      }
+
+      // if we made it this far, everything passed
+      return true;
+    }
   }
 }
