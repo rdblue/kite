@@ -78,6 +78,9 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
     return Iterators.transform(current,
         new Function<Pair<Marker.Builder, Marker.Builder>, MarkerRange>() {
           @Override
+          @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+              value="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE",
+              justification="False positive, initialized above as non-null.")
           public MarkerRange apply(
               @Nullable Pair<Marker.Builder, Marker.Builder> pair) {
             return new MarkerRange(cmp)
@@ -220,10 +223,10 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * @param <T> The type of container
    */
   abstract static class StackedIterator<I, T> implements Iterator<T> {
-    private Iterable<I> items;
-    private Iterator<I> iterItems;
-    private Iterator<T> inner;
-    private T current;
+    private Iterable<I> items = null;
+    private Iterator<I> iterItems = null;
+    private Iterator<T> inner = null;
+    private T current = null;
 
     protected final void setItem(I item) {
       setItems(Collections.singleton(item));

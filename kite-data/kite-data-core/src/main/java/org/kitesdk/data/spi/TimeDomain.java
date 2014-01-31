@@ -156,25 +156,6 @@ public class TimeDomain {
       }
     }
 
-    public boolean isLowerBound(StorageKey key) {
-      return hasLower && boundEquals(key, lower);
-    }
-
-    public boolean isUpperBound(StorageKey key) {
-      return hasUpper && boundEquals(key, upper);
-    }
-
-    private boolean boundEquals(StorageKey key, long timestamp) {
-      for (CalendarFieldPartitioner calField : partitioners) {
-        if (calField.apply(timestamp) != key.get(calField.getName())) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    // this needs a better concept: in/out/maybe
-
     @Override
     public boolean apply(@Nullable StorageKey key) {
       if (key == null) {
