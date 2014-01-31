@@ -48,6 +48,10 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
   @Override
   @SuppressWarnings("unchecked")
   public Iterator<MarkerRange> iterator() {
+    if (predicates.isEmpty()) {
+      return Iterators.singletonIterator(new MarkerRange(cmp));
+    }
+
     final Marker.Builder low = new Marker.Builder();
     final Marker.Builder high = new Marker.Builder();
 

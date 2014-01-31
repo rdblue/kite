@@ -65,6 +65,14 @@ public class TestKeyRangeIterable {
   public static final MarkerComparator cmp = new MarkerComparator(strategy);
 
   @Test
+  public void testUnbounded() {
+    Constraints c = new Constraints();
+    assertIterableEquals(
+        Sets.newHashSet(new MarkerRange(idCmp)),
+        c.toKeyRanges(id));
+  }
+
+  @Test
   public void testSingleSet() {
     Constraints c = new Constraints().with("component", "com.company.Main");
 

@@ -54,7 +54,6 @@ class DaoView<E> extends AbstractRefineableView<E> {
     Iterable<MarkerRange> markerRanges = constraints.toKeyRanges(partitionStrategy);
     // TODO: combine all ranges into a single reader
     MarkerRange range = Iterables.getOnlyElement(markerRanges);
-    System.out.println("tomw range " + range);
     return dataset.getDao().getScanner(toPartitionKey(range.getStart()),
         range.getStart().isInclusive(), toPartitionKey(range.getEnd()),
         range.getEnd().isInclusive());
