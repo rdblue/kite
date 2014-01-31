@@ -23,9 +23,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Ranges;
@@ -33,12 +30,8 @@ import com.google.common.collect.Sets;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -143,7 +136,7 @@ public class Constraints<E> implements Predicate<E> {
     } else if (range.hasUpperBound()) {
       return Ranges.atMost(function.apply(range.upperEndpoint()));
     } else {
-      return (Range<T>) Ranges.all();
+      return Ranges.all();
     }
   }
 
