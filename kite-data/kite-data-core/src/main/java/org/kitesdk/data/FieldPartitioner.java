@@ -161,6 +161,7 @@ public abstract class FieldPartitioner<S, T> implements Function<S, T>, Comparat
    *
    * @param predicate
    * @return
+   * @since 0.11.0
    */
   public abstract Predicate<T> project(Predicate<S> predicate);
 }

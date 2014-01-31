@@ -15,18 +15,72 @@
  */
 package org.kitesdk.data;
 
+import javax.annotation.concurrent.Immutable;
+
+/**
+ * A {@code RefineableView} specifies a subset of a {@link Dataset} by one or more
+ * logical constraints.
+ *
+ * @param <E>
+ *      The type of entities stored in the {@code Dataset} underlying this
+ *      {@code RefineableView}.
+ * @since 0.11.0
+ */
+@Immutable
 public interface RefineableView<E> extends View<E> {
 
+  /**
+   * Creates a sub-{@code View}, restricted to entities whose <code>name</code> field
+   * is non-null.
+   *
+   * @param name the field name of the entity
+   * @return the restricted view
+   */
   RefineableView<E> with(String name);
 
+  /**
+   * Creates a sub-{@code View}, restricted to entities whose <code>name</code> field is
+   * equal to the given <code>value</code>.
+   *
+   * @param name the field name of the entity
+   * @return the restricted view
+   */
   RefineableView<E> with(String name, Object value);
 
+  /**
+   * Creates a sub-{@code View}, restricted to entities whose <code>name</code> field
+   * is greater than or equal to the given <code>value</code>.
+   *
+   * @param name the field name of the entity
+   * @return the restricted view
+   */
   RefineableView<E> from(String name, Object value);
 
+  /**
+   * Creates a sub-{@code View}, restricted to entities whose <code>name</code> field
+   * is greater than to the given <code>value</code>.
+   *
+   * @param name the field name of the entity
+   * @return the restricted view
+   */
   RefineableView<E> fromAfter(String name, Object value);
 
+  /**
+   * Creates a sub-{@code View}, restricted to entities whose <code>name</code> field
+   * is less than or equal to the given <code>value</code>.
+   *
+   * @param name the field name of the entity
+   * @return the restricted view
+   */
   RefineableView<E> to(String name, Object value);
 
+  /**
+   * Creates a sub-{@code View}, restricted to entities whose <code>name</code> field
+   * is less than to the given <code>value</code>.
+   *
+   * @param name the field name of the entity
+   * @return the restricted view
+   */
   RefineableView<E> toBefore(String name, Object value);
 
 }
