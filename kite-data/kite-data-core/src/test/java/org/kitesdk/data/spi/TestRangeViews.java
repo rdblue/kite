@@ -216,13 +216,13 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // test events
     Assert.assertFalse("Should not contain older event",
-        fromOctober.contains(sepEvent));
+        fromOctober.canContain(sepEvent));
     Assert.assertTrue("Should contain event",
-        fromOctober.contains(octEvent));
+        fromOctober.canContain(octEvent));
     Assert.assertTrue("Should contain newer event",
-        fromOctober.contains(novEvent));
+        fromOctober.canContain(novEvent));
     Assert.assertTrue("Should contain current event",
-        fromOctober.contains(event));
+        fromOctober.canContain(event));
 
     // special case: to(same instant)
     Assert.assertNotNull("to(same instant) should succeed",
@@ -292,13 +292,13 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // test events
     Assert.assertFalse("Should not contain older event",
-        afterSep.contains(sepEvent));
+        afterSep.canContain(sepEvent));
     Assert.assertTrue("Should contain event",
-        afterSep.contains(octEvent));
+        afterSep.canContain(octEvent));
     Assert.assertTrue("Should contain newer event",
-        afterSep.contains(novEvent));
+        afterSep.canContain(novEvent));
     Assert.assertTrue("Should contain current event",
-        afterSep.contains(event));
+        afterSep.canContain(event));
 
     // special case: to(same instant)
     TestHelpers.assertThrows("to(same instant) should fail",
@@ -373,13 +373,13 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // test events
     Assert.assertTrue("Should contain older event",
-        toOct.contains(sepEvent));
+        toOct.canContain(sepEvent));
     Assert.assertFalse("Should not contain event",
-        toOct.contains(octEvent));
+        toOct.canContain(octEvent));
     Assert.assertFalse("Should not contain newer event",
-        toOct.contains(novEvent));
+        toOct.canContain(novEvent));
     Assert.assertFalse("Should not contain current event",
-        toOct.contains(event));
+        toOct.canContain(event));
 
     // special case: from(same instant)
     Assert.assertNotNull("from(same instant) should succeed",
@@ -449,13 +449,13 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // test events
     Assert.assertTrue("Should contain older event",
-        beforeOct.contains(sepEvent));
+        beforeOct.canContain(sepEvent));
     Assert.assertFalse("Should not contain event",
-        beforeOct.contains(octEvent));
+        beforeOct.canContain(octEvent));
     Assert.assertFalse("Should not contain newer event",
-        beforeOct.contains(novEvent));
+        beforeOct.canContain(novEvent));
     Assert.assertFalse("Should not contain current event",
-        beforeOct.contains(event));
+        beforeOct.canContain(event));
 
     // special case: from(same instant)
     TestHelpers.assertThrows("from(same instant) should fail",
@@ -584,13 +584,13 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // test events
     Assert.assertFalse("Should not contain older event",
-        oct.contains(sepEvent));
+        oct.canContain(sepEvent));
     Assert.assertTrue("Should contain event",
-        oct.contains(octEvent));
+        oct.canContain(octEvent));
     Assert.assertFalse("Should not contain newer event",
-        oct.contains(novEvent));
+        oct.canContain(novEvent));
     Assert.assertFalse("Should not contain current event",
-        oct.contains(event));
+        oct.canContain(event));
 
     // special cases
     Assert.assertNotNull("to(start) should succeed",
@@ -695,15 +695,15 @@ public abstract class TestRangeViews extends MiniDFSTest {
   public void testUnboundedView() {
     // test events
     Assert.assertTrue("Should contain any StandardEvent",
-        unbounded.contains(event));
+        unbounded.canContain(event));
     Assert.assertTrue("Should contain even null events",
-        unbounded.contains((StandardEvent) null));
+        unbounded.canContain((StandardEvent) null));
     Assert.assertTrue("Should contain older event",
-        unbounded.contains(sepEvent));
+        unbounded.canContain(sepEvent));
     Assert.assertTrue("Should contain event",
-        unbounded.contains(octEvent));
+        unbounded.canContain(octEvent));
     Assert.assertTrue("Should contain newer event",
-        unbounded.contains(novEvent));
+        unbounded.canContain(novEvent));
 
     // test range limiting
     Assert.assertNotNull("from should succeed",
@@ -727,15 +727,15 @@ public abstract class TestRangeViews extends MiniDFSTest {
 
     // test events
     Assert.assertTrue("Should contain any StandardEvent",
-        notPartitioned.contains(event));
+        notPartitioned.canContain(event));
     Assert.assertTrue("Should contain even null events",
-        notPartitioned.contains((StandardEvent) null));
+        notPartitioned.canContain((StandardEvent) null));
     Assert.assertTrue("Should contain older event",
-        notPartitioned.contains(sepEvent));
+        notPartitioned.canContain(sepEvent));
     Assert.assertTrue("Should contain event",
-        notPartitioned.contains(octEvent));
+        notPartitioned.canContain(octEvent));
     Assert.assertTrue("Should contain newer event",
-        notPartitioned.contains(novEvent));
+        notPartitioned.canContain(novEvent));
 
     // test range limiting
     Assert.assertNotNull("from should succeed",

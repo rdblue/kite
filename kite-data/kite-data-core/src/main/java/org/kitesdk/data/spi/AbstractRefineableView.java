@@ -129,7 +129,7 @@ public abstract class AbstractRefineableView<E> implements RefineableView<E> {
   }
 
   @Override
-  public boolean contains(E entity) {
+  public boolean canContain(E entity) {
     return entityTest.apply(entity);
   }
 

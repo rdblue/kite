@@ -76,21 +76,21 @@ public class TestFileSystemView extends TestRangeViews {
 
     assertTrue(coveringPartitions.hasNext());
     View v1 = coveringPartitions.next();
-    assertTrue(v1.contains(standardEvent(sepEvent.getTimestamp())));
-    assertFalse(v1.contains(standardEvent(octEvent.getTimestamp())));
-    assertFalse(v1.contains(standardEvent(novEvent.getTimestamp())));
+    assertTrue(v1.canContain(standardEvent(sepEvent.getTimestamp())));
+    assertFalse(v1.canContain(standardEvent(octEvent.getTimestamp())));
+    assertFalse(v1.canContain(standardEvent(novEvent.getTimestamp())));
 
     assertTrue(coveringPartitions.hasNext());
     View v2 = coveringPartitions.next();
-    assertFalse(v2.contains(standardEvent(sepEvent.getTimestamp())));
-    assertTrue(v2.contains(standardEvent(octEvent.getTimestamp())));
-    assertFalse(v2.contains(standardEvent(novEvent.getTimestamp())));
+    assertFalse(v2.canContain(standardEvent(sepEvent.getTimestamp())));
+    assertTrue(v2.canContain(standardEvent(octEvent.getTimestamp())));
+    assertFalse(v2.canContain(standardEvent(novEvent.getTimestamp())));
 
     assertTrue(coveringPartitions.hasNext());
     View v3 = coveringPartitions.next();
-    assertFalse(v3.contains(standardEvent(sepEvent.getTimestamp())));
-    assertFalse(v3.contains(standardEvent(octEvent.getTimestamp())));
-    assertTrue(v3.contains(standardEvent(novEvent.getTimestamp())));
+    assertFalse(v3.canContain(standardEvent(sepEvent.getTimestamp())));
+    assertFalse(v3.canContain(standardEvent(octEvent.getTimestamp())));
+    assertTrue(v3.canContain(standardEvent(novEvent.getTimestamp())));
 
     assertFalse(coveringPartitions.hasNext());
   }

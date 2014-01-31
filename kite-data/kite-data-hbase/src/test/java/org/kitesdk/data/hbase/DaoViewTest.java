@@ -97,13 +97,13 @@ public class DaoViewTest {
     // Test entity range checks
     // Note that these are strings, not ints, so lexicographic ordering is used
     // Assert.assertTrue(range.contains(newTestEntity("1", "10"))); // TODO: exclusive
-    Assert.assertTrue(range.contains(newTestEntity("5", "5")));
-    Assert.assertTrue(range.contains(newTestEntity("5", "55")));
-    Assert.assertTrue(range.contains(newTestEntity("9", "89")));
-    Assert.assertTrue(range.contains(newTestEntity("9", "9")));
-    Assert.assertFalse(range.contains(newTestEntity("1", "1")));
-    Assert.assertFalse(range.contains(newTestEntity("1", "0")));
-    Assert.assertFalse(range.contains(newTestEntity("9", "99")));
+    Assert.assertTrue(range.canContain(newTestEntity("5", "5")));
+    Assert.assertTrue(range.canContain(newTestEntity("5", "55")));
+    Assert.assertTrue(range.canContain(newTestEntity("9", "89")));
+    Assert.assertTrue(range.canContain(newTestEntity("9", "9")));
+    Assert.assertFalse(range.canContain(newTestEntity("1", "1")));
+    Assert.assertFalse(range.canContain(newTestEntity("1", "0")));
+    Assert.assertFalse(range.canContain(newTestEntity("9", "99")));
 
     DatasetReader<TestEntity> reader = range.newReader();
     reader.open();
