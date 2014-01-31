@@ -20,7 +20,6 @@ import org.joda.time.DateTime;
 import org.kitesdk.data.DatasetRepository;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.spi.TestRangeViews;
-import org.kitesdk.data.View;
 import org.kitesdk.data.event.StandardEvent;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -30,9 +29,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Iterator;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class TestFileSystemView extends TestRangeViews {
@@ -116,46 +113,47 @@ public class TestFileSystemView extends TestRangeViews {
     final Path nov = new Path("target/data/test/year=2013/month=11");
     final Path nov11 = new Path("target/data/test/year=2013/month=11/day=11");
     assertDirectoriesExist(fs, root, y2013, sep, sep12, oct, oct12, nov, nov11);
-//
-//    long julStart = new DateTime(2013, 6, 0, 0, 0).getMillis();
-//    long sepStart = new DateTime(2013, 9, 0, 0, 0).getMillis();
-//    long nov12Start = new DateTime(2013, 11, 12, 0, 0).getMillis();
-//    long nov13Start = new DateTime(2013, 11, 13, 0, 0).getMillis();
-//
-//    Assert.assertFalse("Delete should return false to indicate no changes",
-//        unbounded.from("timestamp", julStart).toBefore("timestamp", sepStart)
-//            .deleteAll());
-//    Assert.assertFalse("Delete should return false to indicate no changes",
-//        unbounded.from(YMD, 2013, 11, 12).deleteAll());
-//
-//    // delete everything up to September
-//    assertTrue("Delete should return true to indicate FS changed",
-//        unbounded.to(YM, 2013, 9).deleteAll());
-//    assertDirectoriesDoNotExist(fs, sep12, sep);
-//    assertDirectoriesExist(fs, root, y2013, oct, oct12, nov, nov11);
-//    Assert.assertFalse("Delete should return false to indicate no changes",
-//        unbounded.to(YM, 2013, 9).deleteAll());
-//
-//    // delete November 11 and later
-//    assertTrue("Delete should return true to indicate FS changed",
-//        unbounded.from(YMD, 2013, 11, 11).to(YMD, 2013, 11, 12)
-//            .deleteAll());
-//    assertDirectoriesDoNotExist(fs, sep12, sep, nov11, nov);
-//    assertDirectoriesExist(fs, root, y2013, oct, oct12);
-//    Assert.assertFalse("Delete should return false to indicate no changes",
-//        unbounded.from(YMD, 2013, 11, 11).to(YMD, 2013, 11, 12)
-//            .deleteAll());
-//
-//    // delete October and the 2013 directory
-//    assertTrue("Delete should return true to indicate FS changed",
-//        unbounded.of(YMD, 2013, 10, 12).deleteAll());
-//    assertDirectoriesDoNotExist(fs, y2013, sep12, sep, oct12, oct, nov11, nov);
-//    assertDirectoriesExist(fs, root);
-//    Assert.assertFalse("Delete should return false to indicate no changes",
-//        unbounded.of(YMD, 2013, 10, 12).deleteAll());
-//
-//    Assert.assertFalse("Delete should return false to indicate no changes",
-//        unbounded.deleteAll());
+
+    long julStart = new DateTime(2013, 6, 1, 0, 0).getMillis();
+    long sepStart = new DateTime(2013, 9, 1, 0, 0).getMillis();
+    long nov11Start = new DateTime(2013, 11, 11, 0, 0).getMillis();
+    long nov12Start = new DateTime(2013, 11, 12, 0, 0).getMillis();
+    long decStart = new DateTime(2013, 12, 1, 0, 0).getMillis();
+    long sepInstant = sepEvent.getTimestamp();
+    long octInstant = octEvent.getTimestamp();
+
+    Assert.assertFalse("Delete should return false to indicate no changes",
+        unbounded.from("timestamp", julStart).toBefore("timestamp", sepStart)
+            .deleteAll());
+    Assert.assertFalse("Delete should return false to indicate no changes",
+        unbounded.from("timestamp", decStart).deleteAll());
+
+    // delete everything up to September
+    assertTrue("Delete should return true to indicate FS changed",
+        unbounded.to("timestamp", sepInstant).deleteAll());
+    assertDirectoriesDoNotExist(fs, sep12, sep);
+    assertDirectoriesExist(fs, root, y2013, oct, oct12, nov, nov11);
+    Assert.assertFalse("Delete should return false to indicate no changes",
+        unbounded.to("timestamp", sepInstant).deleteAll());
+
+    // delete November 11 and later
+    assertTrue("Delete should return true to indicate FS changed",
+        unbounded.from("timestamp", nov11Start).to("timestamp", nov12Start).deleteAll());
+    assertDirectoriesDoNotExist(fs, sep12, sep, nov11, nov);
+    assertDirectoriesExist(fs, root, y2013, oct, oct12);
+    Assert.assertFalse("Delete should return false to indicate no changes",
+        unbounded.from("timestamp", nov11Start).to("timestamp", nov12Start).deleteAll());
+
+    // delete October and the 2013 directory
+    assertTrue("Delete should return true to indicate FS changed",
+        unbounded.from("timestamp", octInstant).to("timestamp", octInstant).deleteAll());
+    assertDirectoriesDoNotExist(fs, y2013, sep12, sep, oct12, oct, nov11, nov);
+    assertDirectoriesExist(fs, root);
+    Assert.assertFalse("Delete should return false to indicate no changes",
+        unbounded.from("timestamp", octInstant).to("timestamp", octInstant).deleteAll());
+
+    Assert.assertFalse("Delete should return false to indicate no changes",
+        unbounded.deleteAll());
   }
 
   public static void assertDirectoriesExist(FileSystem fs, Path... dirs)
