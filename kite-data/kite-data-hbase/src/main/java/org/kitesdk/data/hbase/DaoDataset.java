@@ -23,10 +23,8 @@ import org.kitesdk.data.Key;
 import org.kitesdk.data.PartitionKey;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.RandomAccessDataset;
-import org.kitesdk.data.View;
 import org.kitesdk.data.hbase.impl.Dao;
 import org.kitesdk.data.spi.AbstractDataset;
-import com.google.common.base.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,15 +87,6 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
     logger.debug("Getting reader for dataset:{}", this);
 
     return unbounded.newReader();
-  }
-
-  @Override
-  public Iterable<View<E>> getCoveringPartitions() {
-    Preconditions.checkState(descriptor.isPartitioned(),
-        "Attempt to get partitions on a non-partitioned dataset (name:%s)",
-        name);
-
-    return unbounded.getCoveringPartitions();
   }
 
   @Override

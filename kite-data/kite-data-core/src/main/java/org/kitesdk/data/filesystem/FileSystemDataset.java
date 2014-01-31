@@ -126,18 +126,8 @@ class FileSystemDataset<E> extends AbstractDataset<E> {
     return unbounded.newReader();
   }
 
-  @Override
   public boolean deleteAll() {
     return unbounded.deleteAll();
-  }
-
-  @Override
-  public Iterable<View<E>> getCoveringPartitions() {
-    Preconditions.checkState(descriptor.isPartitioned(),
-      "Attempt to get partitions on a non-partitioned dataset (name:%s)",
-      name);
-
-    return unbounded.getCoveringPartitions();
   }
 
   PathIterator pathIterator() {

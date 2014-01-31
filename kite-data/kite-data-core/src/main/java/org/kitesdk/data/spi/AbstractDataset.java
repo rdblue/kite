@@ -38,12 +38,6 @@ public abstract class AbstractDataset<E> implements Dataset<E>, RefineableView<E
   }
 
   @Override
-  public boolean deleteAll() {
-    throw new UnsupportedOperationException(
-        "This Dataset does not support deletion");
-  }
-
-  @Override
   @Deprecated
   public DatasetReader<E> getReader() {
     return newReader();
@@ -60,8 +54,4 @@ public abstract class AbstractDataset<E> implements Dataset<E>, RefineableView<E
     return true;
   }
 
-  @Override
-  public Iterable<View<E>> getCoveringPartitions() {
-    throw new UnsupportedOperationException("Not supported yet.");
-  }
 }

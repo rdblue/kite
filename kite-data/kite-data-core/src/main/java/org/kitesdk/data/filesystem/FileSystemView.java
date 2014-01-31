@@ -87,29 +87,6 @@ class FileSystemView<E> extends AbstractRefineableView<E> {
     return deleted;
   }
 
-  @Override
-  @SuppressWarnings("unchecked")
-  public Iterable<View<E>> getCoveringPartitions() {
-    throw new UnsupportedOperationException("Not supported yet.");
-//    if (dataset.getDescriptor().isPartitioned()) {
-//      return Iterables.transform(
-//          partitionIterator(),
-//          new Function<StorageKey, View<E>>() {
-//            @Override
-//            public View<E> apply(StorageKey key) {
-//              if (key != null) {
-//                // no need for the bounds checks, use dataset.in
-//                return ((FileSystemDataset) dataset).of(key);
-//              } else {
-//                throw new DatasetException("[BUG] Null partition");
-//              }
-//            }
-//          });
-//    } else {
-//      return Lists.newArrayList((View<E>) this);
-//    }
-  }
-
   PathIterator pathIterator() {
     final Iterable<Path> directories;
     if (dataset.getDescriptor().isPartitioned()) {

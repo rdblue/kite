@@ -21,7 +21,6 @@ import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionKey;
 import org.kitesdk.data.PartitionStrategy;
-import org.kitesdk.data.View;
 import org.kitesdk.data.spi.AbstractRefineableView;
 import org.kitesdk.data.spi.Constraints;
 import org.kitesdk.data.spi.StorageKey;
@@ -95,13 +94,6 @@ class DaoView<E> extends AbstractRefineableView<E> {
         return wrappedWriter.isOpen();
       }
     };
-  }
-
-  @Override
-  public Iterable<View<E>> getCoveringPartitions() {
-    // TODO: use HBase InputFormat to construct splits
-    throw new UnsupportedOperationException("getCoveringPartitions is not yet "
-        + "supported.");
   }
 
   @SuppressWarnings("deprecation")
