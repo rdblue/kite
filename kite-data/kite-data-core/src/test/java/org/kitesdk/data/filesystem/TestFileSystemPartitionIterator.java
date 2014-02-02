@@ -188,7 +188,6 @@ public class TestFileSystemPartitionIterator extends MiniDFSTest {
       // need to check as iteration happens because the StorageKey is reused
       Assert.assertTrue("Unexpected record: " + actual,
           expectedSet.remove(actual));
-      LOG.info("Expected record: " + actual);
     }
     Assert.assertEquals("Not all expected records were present: " + expectedSet,
         0, expectedSet.size());
