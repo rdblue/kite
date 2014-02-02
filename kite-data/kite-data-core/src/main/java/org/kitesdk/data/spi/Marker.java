@@ -130,15 +130,8 @@ public abstract class Marker {
 
     final Map<String, Object> values;
 
-    public ImmutableMarker(Map<String, Object> content) {
+    ImmutableMarker(Map<String, Object> content) {
       this.values = ImmutableMap.copyOf(content);
-    }
-
-    public ImmutableMarker(String[] names, Object[] vals) {
-      this.values = Maps.newHashMap();
-      for (int i = 0; i < names.length; i++) {
-        values.put(names[i], vals[i]);
-      }
     }
 
     @Override
