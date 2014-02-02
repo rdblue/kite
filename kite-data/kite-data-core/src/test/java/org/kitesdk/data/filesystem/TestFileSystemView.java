@@ -22,7 +22,7 @@ import org.junit.Ignore;
 import org.kitesdk.data.DatasetRepository;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.View;
-import org.kitesdk.data.spi.TestRangeViews;
+import org.kitesdk.data.spi.TestRefinableViews;
 import org.kitesdk.data.event.StandardEvent;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -36,7 +36,7 @@ import java.net.URI;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class TestFileSystemView extends TestRangeViews {
+public class TestFileSystemView extends TestRefinableViews {
 
   public TestFileSystemView(boolean distributed) {
     super(distributed);

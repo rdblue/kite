@@ -35,14 +35,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RunWith(Parameterized.class)
-public abstract class TestRangeViews extends MiniDFSTest {
+public abstract class TestRefinableViews extends MiniDFSTest {
 
   private static final Logger LOG =
-      LoggerFactory.getLogger(TestRangeViews.class);
+      LoggerFactory.getLogger(TestRefinableViews.class);
 
   protected static final long now = System.currentTimeMillis();
   protected static final StandardEvent event = StandardEvent.newBuilder()
-      .setEventInitiator("TestRangeViews")
+      .setEventInitiator("TestRefinableViews")
       .setEventName("TestEvent")
       .setUserId(0)
       .setSessionId("session-0")
@@ -73,7 +73,7 @@ public abstract class TestRangeViews extends MiniDFSTest {
   // whether this should use the DFS
   private final boolean distributed;
 
-  protected TestRangeViews(boolean distributed) {
+  protected TestRefinableViews(boolean distributed) {
     this.distributed = distributed;
   }
 
