@@ -18,7 +18,6 @@ package org.kitesdk.data.hbase;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
-import org.kitesdk.data.spi.Marker;
 import org.kitesdk.data.Key;
 import org.kitesdk.data.RandomAccessDataset;
 import org.kitesdk.data.hbase.avro.AvroUtils;
@@ -122,8 +121,8 @@ public class HBaseDatasetRepositoryTest {
     for (int i = 0; i < 10; ++i) {
       String iStr = Long.toString(i);
       Key key = new Key.Builder(ds)
-          .add("part1", "part1_" + iStr)
-          .add("part2", "part2_" + iStr).build();
+          .add("part1", new Utf8("part1_" + iStr))
+          .add("part2", new Utf8("part2_" + iStr)).build();
       compareEntitiesWithUtf8(i, ds.get(key));
     }
 
@@ -147,8 +146,8 @@ public class HBaseDatasetRepositoryTest {
     // test a partial scan
     cnt = 3;
     reader = new DaoView<GenericRecord>(ds)
-        .from("part1", "part1_3").from("part2", "part2_3")
-        .to("part1", "part1_7").to("part2", "part2_7")
+        .from("part1", new Utf8("part1_3")).from("part2", new Utf8("part2_3"))
+        .to("part1", new Utf8("part1_7")).to("part2", new Utf8("part2_7"))
         .newReader();
     reader.open();
     try {
@@ -162,8 +161,8 @@ public class HBaseDatasetRepositoryTest {
     }
 
     Key key = new Key.Builder(ds)
-        .add("part1", "part1_5")
-        .add("part2", "part2_5").build();
+        .add("part1", new Utf8("part1_5"))
+        .add("part2", new Utf8("part2_5")).build();
 
     // test delete
     ds.delete(key);

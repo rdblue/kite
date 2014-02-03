@@ -15,7 +15,11 @@
  */
 package org.kitesdk.data.hbase;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.UnmodifiableIterator;
+import java.util.Iterator;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.FieldPartitioner;
@@ -53,9 +57,53 @@ class DaoView<E> extends AbstractRefineableView<E> {
     Iterable<MarkerRange> markerRanges = constraints.toKeyRanges(partitionStrategy);
     // TODO: combine all ranges into a single reader
     MarkerRange range = Iterables.getOnlyElement(markerRanges);
-    return dataset.getDao().getScanner(toPartitionKey(range.getStart()),
-        range.getStart().isInclusive(), toPartitionKey(range.getEnd()),
-        range.getEnd().isInclusive());
+    final DatasetReader<E> wrappedReader = dataset.getDao().getScanner(
+        toPartitionKey(range.getStart()), range.getStart().isInclusive(),
+        toPartitionKey(range.getEnd()), range.getEnd().isInclusive());
+    final UnmodifiableIterator<E> filteredIterator =
+        Iterators.filter(wrappedReader.iterator(), constraints.toEntityPredicate());
+    return new DatasetReader<E>() {
+      @Override
+      public void open() {
+        wrappedReader.open();
+      }
+
+      @Override
+      public boolean hasNext() {
+        Preconditions.checkState(isOpen(),
+            "Attempt to read from a scanner that is not open");
+        return filteredIterator.hasNext();
+      }
+
+      @Override
+      public E next() {
+        Preconditions.checkState(isOpen(),
+            "Attempt to read from a scanner that is not open");
+        return filteredIterator.next();
+      }
+
+      @Override
+      public void remove() {
+        Preconditions.checkState(isOpen(),
+            "Attempt to read from a scanner that is not open");
+        filteredIterator.remove();
+      }
+
+      @Override
+      public void close() {
+        wrappedReader.close();
+      }
+
+      @Override
+      public boolean isOpen() {
+        return wrappedReader.isOpen();
+      }
+
+      @Override
+      public Iterator<E> iterator() {
+        return filteredIterator;
+      }
+    };
   }
 
   @Override
