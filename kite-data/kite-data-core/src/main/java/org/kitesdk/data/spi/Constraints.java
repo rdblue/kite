@@ -162,6 +162,18 @@ public class Constraints {
     }
   }
 
+  /**
+   * Returns the predicate for a named field.
+   *
+   * For testing.
+   *
+   * @param name a String field name
+   * @return a Predicate for the given field, or null if none is set
+   */
+  Predicate get(String name) {
+    return constraints.get(name);
+  }
+
   @SuppressWarnings("unchecked")
   private void checkContained(String name, Object... values) {
     for (Object value : values) {
