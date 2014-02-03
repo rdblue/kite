@@ -165,7 +165,7 @@ public class TestConstraints {
 
   @Test(expected=NullPointerException.class)
   public void testWithNull() {
-    Constraints withNull = new Constraints().with("id", null);
+    new Constraints().with("id", (Object) null);
   }
 
   @Test
