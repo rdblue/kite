@@ -300,6 +300,7 @@ public class MarkerRange {
         return Objects.toStringHelper(this)
             .add("inclusive", isInclusive)
             .add("bound", bound)
+            .add("comparator", comparator)
             .toString();
       }
     }
@@ -405,5 +406,43 @@ public class MarkerRange {
       }
     }
 
+  }
+
+  public static class Builder {
+
+    private Marker.Builder start;
+    private Marker.Builder end;
+    private MarkerComparator comparator;
+
+    public Builder(MarkerComparator comparator) {
+      this.comparator = comparator;
+    }
+
+    public Builder addToStart(String name, Object value) {
+      if (start == null) {
+        start = new Marker.Builder();
+      }
+      start.add(name, value);
+      return this;
+    }
+
+    public Builder addToEnd(String name, Object value) {
+      if (end == null) {
+        end = new Marker.Builder();
+      }
+      end.add(name, value);
+      return this;
+    }
+
+    public MarkerRange build() {
+      MarkerRange markerRange = new MarkerRange(comparator);
+      if (start != null) {
+        markerRange = markerRange.from(start.build());
+      }
+      if (end != null) {
+        markerRange = markerRange.to(end.build());
+      }
+      return markerRange;
+    }
   }
 }

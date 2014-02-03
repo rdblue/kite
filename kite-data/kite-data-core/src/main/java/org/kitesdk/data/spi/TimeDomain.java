@@ -217,9 +217,9 @@ public class TimeDomain {
   }
 
   @SuppressWarnings("unchecked")
-  Iterator<Pair<Marker.Builder, Marker.Builder>> addStackedIterator(
+  Iterator<MarkerRange.Builder> addStackedIterator(
       Predicate<Long> timePredicate,
-      Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+      Iterator<MarkerRange.Builder> inner) {
     if (timePredicate instanceof Predicates.In) {
       // normal group handling is sufficient for a set of specific times
       // instantiate directly because the add method projects the predicate
@@ -233,28 +233,28 @@ public class TimeDomain {
   }
 
   private static class TimeRangeIterator extends
-      KeyRangeIterable.StackedIterator<Range<Long>, Pair<Marker.Builder, Marker.Builder>> {
+      KeyRangeIterable.StackedIterator<Range<Long>, MarkerRange.Builder> {
     private final List<CalendarFieldPartitioner> fields;
     private TimeRangeIterator(Range<Long> timeRange, List<CalendarFieldPartitioner> fps,
-                              Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+                              Iterator<MarkerRange.Builder> inner) {
       this.fields = fps;
       setItem(timeRange);
       setInner(inner);
     }
 
     @Override
-    public Pair<Marker.Builder, Marker.Builder> update(
-        Pair<Marker.Builder, Marker.Builder> current, Range<Long> range) {
+    public MarkerRange.Builder update(
+        MarkerRange.Builder current, Range<Long> range) {
       // FIXME: this assumes all of the partition fields are in order
       // This should identify out-of-order fields and alter the range
       for (CalendarFieldPartitioner cfp : fields) {
         boolean hasLower = range.hasLowerBound();
         boolean hasUpper = range.hasUpperBound();
         if (hasLower) {
-          current.first().add(cfp.getName(), cfp.apply(range.lowerEndpoint()));
+          current.addToStart(cfp.getName(), cfp.apply(range.lowerEndpoint()));
         }
         if (hasUpper) {
-          current.second().add(cfp.getName(), cfp.apply(range.upperEndpoint()));
+          current.addToEnd(cfp.getName(), cfp.apply(range.upperEndpoint()));
         }
       }
       return current;

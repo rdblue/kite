@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
@@ -48,13 +49,6 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
   @Override
   @SuppressWarnings("unchecked")
   public Iterator<MarkerRange> iterator() {
-    if (predicates.isEmpty()) {
-      return Iterators.singletonIterator(new MarkerRange(cmp));
-    }
-
-    final Marker.Builder low = new Marker.Builder();
-    final Marker.Builder high = new Marker.Builder();
-
     // this should be part of PartitionStrategy
     final LinkedListMultimap<String, FieldPartitioner> partitioners =
         LinkedListMultimap.create();
@@ -62,7 +56,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
       partitioners.put(fp.getSourceName(), fp);
     }
 
-    Iterator<Pair<Marker.Builder, Marker.Builder>> current = start(Pair.of(low, high));
+    Iterator<MarkerRange.Builder> current = start(new MarkerRange.Builder(cmp));
 
     // primarily loop over sources because the logical constraints are there
     for (String source : partitioners.keySet()) {
@@ -79,18 +73,18 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
       }
     }
 
-    return Iterators.transform(current,
-        new Function<Pair<Marker.Builder, Marker.Builder>, MarkerRange>() {
-          @Override
-          @edu.umd.cs.findbugs.annotations.SuppressWarnings(
-              value="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE",
-              justification="False positive, initialized above as non-null.")
-          public MarkerRange apply(
-              @Nullable Pair<Marker.Builder, Marker.Builder> pair) {
-            return new MarkerRange(cmp)
-                .from(pair.first().build()).to(pair.second().build());
-          }
-        });
+    return Iterators.transform(current, new ToMarkerRangeFunction());
+  }
+
+  private static class ToMarkerRangeFunction implements
+      Function<MarkerRange.Builder, MarkerRange> {
+    @Override
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings(
+        value="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE",
+        justification="False positive, initialized above as non-null.")
+    public MarkerRange apply(@Nullable MarkerRange.Builder builder) {
+      return builder.build();
+    }
   }
 
   /**
@@ -118,11 +112,11 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * @return A key range Iterator
    */
   @SuppressWarnings("unchecked")
-  static Iterator<Pair<Marker.Builder, Marker.Builder>> add(
+  static Iterator<MarkerRange.Builder> add(
       Predicates.In constraint, List<FieldPartitioner> fps,
-      Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+      Iterator<MarkerRange.Builder> inner) {
 
-    Iterator<Pair<Marker.Builder, Marker.Builder>> current = inner;
+    Iterator<MarkerRange.Builder> current = inner;
     List<FieldPartitioner> compatible = Lists.newArrayList();
     for (FieldPartitioner fp : fps) {
       Predicate<?> projected = fp.project(constraint);
@@ -160,11 +154,11 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * @return A key range Iterator
    */
   @SuppressWarnings("unchecked")
-  static Iterator<Pair<Marker.Builder, Marker.Builder>> add(
+  static Iterator<MarkerRange.Builder> add(
       Range constraint, List<FieldPartitioner> fps,
-      Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+      Iterator<MarkerRange.Builder> inner) {
 
-    Iterator<Pair<Marker.Builder, Marker.Builder>> current = inner;
+    Iterator<MarkerRange.Builder> current = inner;
     List<Pair<String, Range>> compatible = Lists.newArrayList();
     for (FieldPartitioner fp : fps) {
       Predicate<?> projected = fp.project(constraint);
@@ -198,9 +192,9 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * @param inner
    * @return
    */
-  private static Iterator<Pair<Marker.Builder, Marker.Builder>> addProjected(
+  private static Iterator<MarkerRange.Builder> addProjected(
       Predicate projected, String name,
-      Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+      Iterator<MarkerRange.Builder> inner) {
     if (projected instanceof Predicates.In) {
       return new SetIterator((Predicates.In) projected, name, inner);
     } else if (projected instanceof Range) {
@@ -285,7 +279,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * {@link KeyRangeIterable.SetGroupIterator}.
    */
   static class SetIterator
-      extends StackedIterator<Object, Pair<Marker.Builder, Marker.Builder>> {
+      extends StackedIterator<Object, MarkerRange.Builder> {
     private final String name;
 
     /**
@@ -298,17 +292,17 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
      */
     @SuppressWarnings("unchecked")
     private SetIterator(Predicates.In projected, String name,
-                       Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+                       Iterator<MarkerRange.Builder> inner) {
       this.name = name;
       setItems(projected.getSet());
       setInner(inner);
     }
 
     @Override
-    public Pair<Marker.Builder, Marker.Builder> update(
-        Pair<Marker.Builder, Marker.Builder> current, Object item) {
-      current.first().add(name, item);
-      current.second().add(name, item);
+    public MarkerRange.Builder update(
+        MarkerRange.Builder current, Object item) {
+      current.addToStart(name, item);
+      current.addToEnd(name, item);
       return current;
     }
   }
@@ -322,7 +316,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * {@link KeyRangeIterable.SetIterator}.
    */
   static class SetGroupIterator
-      extends StackedIterator<Object, Pair<Marker.Builder, Marker.Builder>> {
+      extends StackedIterator<Object, MarkerRange.Builder> {
     private final List<FieldPartitioner> fields;
 
     /**
@@ -351,7 +345,7 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
      */
     @SuppressWarnings("unchecked")
     SetGroupIterator(Predicates.In constraint, List<FieldPartitioner> fps,
-                            Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+                            Iterator<MarkerRange.Builder> inner) {
       this.fields = fps;
       setItems(constraint.getSet());
       setInner(inner);
@@ -359,12 +353,12 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Pair<Marker.Builder, Marker.Builder> update(
-        Pair<Marker.Builder, Marker.Builder> current, Object item) {
+    public MarkerRange.Builder update(
+        MarkerRange.Builder current, Object item) {
       for (FieldPartitioner fp : fields) {
         Object value = fp.apply(item);
-        current.first().add(fp.getName(), value);
-        current.second().add(fp.getName(), value);
+        current.addToStart(fp.getName(), value);
+        current.addToEnd(fp.getName(), value);
       }
       return current;
     }
@@ -377,24 +371,24 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * {@link KeyRangeIterable.RangeGroupIterator}.
    */
   static class RangeIterator
-      extends StackedIterator<Range, Pair<Marker.Builder, Marker.Builder>> {
+      extends StackedIterator<Range, MarkerRange.Builder> {
     private final String name;
     protected RangeIterator(
         String name, Range range,
-        Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+        Iterator<MarkerRange.Builder> inner) {
       this.name = name;
       setItem(range);
       setInner(inner);
     }
 
     @Override
-    public Pair<Marker.Builder, Marker.Builder> update(
-        Pair<Marker.Builder, Marker.Builder> current, Range range) {
+    public MarkerRange.Builder update(
+        MarkerRange.Builder current, Range range) {
       if (range.hasLowerBound()) {
-        current.first().add(name, range.lowerEndpoint());
+        current.addToStart(name, range.lowerEndpoint());
       }
       if (range.hasUpperBound()) {
-        current.second().add(name, range.upperEndpoint());
+        current.addToEnd(name, range.upperEndpoint());
       }
       return current;
     }
@@ -408,27 +402,27 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * {@link KeyRangeIterable.RangeIterator}.
    */
   static class RangeGroupIterator
-      extends StackedIterator<Range, Pair<Marker.Builder, Marker.Builder>> {
+      extends StackedIterator<Range, MarkerRange.Builder> {
     private final List<Pair<String, Range>> fields;
 
     protected RangeGroupIterator(Range constraint, List<Pair<String, Range>> compatible,
-                              Iterator<Pair<Marker.Builder, Marker.Builder>> inner) {
+                              Iterator<MarkerRange.Builder> inner) {
       this.fields = compatible;
       setItem(constraint);
       setInner(inner);
     }
 
     @Override
-    public Pair<Marker.Builder, Marker.Builder> update(
-        Pair<Marker.Builder, Marker.Builder> current, Range range) {
+    public MarkerRange.Builder update(
+        MarkerRange.Builder current, Range range) {
       if (range.hasLowerBound()) {
         for (Pair<String, Range> pair : fields) {
-          current.first().add(pair.first(), pair.second().lowerEndpoint());
+          current.addToStart(pair.first(), pair.second().lowerEndpoint());
         }
       }
       if (range.hasUpperBound()) {
         for (Pair<String, Range> pair : fields) {
-          current.second().add(pair.first(), pair.second().upperEndpoint());
+          current.addToEnd(pair.first(), pair.second().upperEndpoint());
         }
       }
       return current;
