@@ -65,7 +65,7 @@ class FileSystemView<E> extends AbstractRefineableView<E> {
   @Override
   public DatasetReader<E> newReader() {
     return new MultiFileDatasetReader<E>(
-        fs, pathIterator(), dataset.getDescriptor());
+        fs, pathIterator(), dataset.getDescriptor(), constraints);
   }
 
   @Override

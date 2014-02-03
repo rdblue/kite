@@ -281,6 +281,17 @@ public class TestKeyRangeIterable {
             .toKeyRanges(strategy));
   }
 
+  @Test
+  public void testOneSidedRange() {
+    // Thu Sep 12 14:15:47 PDT 2013
+    Constraints c = new Constraints().from("timestamp", 1379020547042l);
+
+    Marker sep = new Marker.Builder()
+        .add("year", 2013).add("month", 9).add("day", 11).build();
+    assertIterableEquals(Sets.newHashSet(new MarkerRange(timeCmp).from(sep)),
+        c.toKeyRanges(time));
+  }
+
   public static <T> void assertIterableEquals(
       Iterable<T> expected, Iterable<T> actualIterable) {
     Set<T> expectedSet = Sets.newHashSet(expected);

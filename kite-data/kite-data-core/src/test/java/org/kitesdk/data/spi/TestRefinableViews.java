@@ -147,12 +147,12 @@ public abstract class TestRefinableViews extends MiniDFSTest {
         unbounded.from("timestamp", octInstant));
     assertContentEquals(Sets.newHashSet(sepEvent, octEvent),
         unbounded.to("timestamp", octInstant));
-    // these don't work right now because readers only enforce predicates when
-    // enumerating partitions -- needs further discussion
-    //assertContentEquals(Sets.newHashSet(novEvent),
-    //    unbounded.fromAfter("timestamp", octInstant));
-    //assertContentEquals(Sets.newHashSet(sepEvent),
-    //    unbounded.toBefore("timestamp", octInstant));
+    // these two test that the constraints are applied after the partitions are
+    // filtered. the partition matches, but the events do not
+    assertContentEquals(Sets.newHashSet(novEvent),
+        unbounded.fromAfter("timestamp", octInstant));
+    assertContentEquals(Sets.newHashSet(sepEvent),
+        unbounded.toBefore("timestamp", octInstant));
 
     // in range
     long octStart = new DateTime(2013, 10, 1, 0, 0, DateTimeZone.UTC).getMillis();

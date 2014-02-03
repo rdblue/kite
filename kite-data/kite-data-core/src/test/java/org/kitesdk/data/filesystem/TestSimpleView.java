@@ -37,6 +37,8 @@ import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.View;
 import org.kitesdk.data.event.StandardEvent;
+import org.kitesdk.data.spi.Constraints;
+import org.kitesdk.data.spi.StorageKey;
 
 public class TestSimpleView {
 
@@ -150,11 +152,11 @@ public class TestSimpleView {
 
     // with
     assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
-        testDataset.with("user_id", 0));
+        testDataset.with("user_id", 0l));
     assertContentEquals(Sets.newHashSet(sepEvent),
-        testDataset.with("user_id", 0).to("timestamp", octInstant));
+        testDataset.with("user_id", 0l).to("timestamp", octInstant));
     assertContentEquals(Sets.newHashSet(sepEvent),
-        testDataset.to("timestamp", octInstant).with("user_id", 0));
+        testDataset.to("timestamp", octInstant).with("user_id", 0l));
 
   }
 
