@@ -77,7 +77,7 @@ public class TestKeyRangeIterable {
     Constraints c = new Constraints().with("component", "com.company.Main");
 
     Marker main = new Marker.Builder("component", "com.company.Main").build();
-    MarkerRange actual = Iterables.<MarkerRange>getOnlyElement(c.toKeyRanges(id));
+    MarkerRange actual = Iterables.getOnlyElement(c.toKeyRanges(id));
     Assert.assertEquals(main, actual.getStart().getBound());
     Assert.assertEquals(main, actual.getEnd().getBound());
     Assert.assertEquals(new MarkerRange(idCmp).of(main), actual);
@@ -103,7 +103,7 @@ public class TestKeyRangeIterable {
 
     Marker marker0 = new Marker.Builder()
         .add("id-hash", hashFunc.apply(ids[0])).add("id", ids[0]).build();
-    MarkerRange actual = (MarkerRange) Iterables.getOnlyElement(c.toKeyRanges(hash));
+    MarkerRange actual = Iterables.getOnlyElement(c.toKeyRanges(hash));
     Assert.assertEquals(marker0, actual.getStart().getBound());
     Assert.assertEquals(marker0, actual.getEnd().getBound());
 
@@ -156,9 +156,9 @@ public class TestKeyRangeIterable {
   @Test
   public void testTimeSet() {
     Long[] timestamps = new Long[] {
-        1379020547042l, // Thu Sep 12 14:15:47 PDT 2013
-        1381612547042l, // Sat Oct 12 14:15:47 PDT 2013
-        1384204547042l  // Mon Nov 11 13:15:47 PST 2013
+        1379020547042L, // Thu Sep 12 14:15:47 PDT 2013
+        1381612547042L, // Sat Oct 12 14:15:47 PDT 2013
+        1384204547042L  // Mon Nov 11 13:15:47 PST 2013
     };
 
     Constraints c = new Constraints().with("timestamp", (Object[]) timestamps);
@@ -177,9 +177,9 @@ public class TestKeyRangeIterable {
   @Test
   public void testTimeRange() {
     Long[] timestamps = new Long[] {
-        1379020547042l, // Thu Sep 12 14:15:47 PDT 2013
-        1381612547042l, // Sat Oct 12 14:15:47 PDT 2013
-        1384204547042l  // Mon Nov 11 13:15:47 PST 2013
+        1379020547042L, // Thu Sep 12 14:15:47 PDT 2013
+        1381612547042L, // Sat Oct 12 14:15:47 PDT 2013
+        1384204547042L  // Mon Nov 11 13:15:47 PST 2013
     };
 
     Constraints c = new Constraints()
@@ -197,8 +197,8 @@ public class TestKeyRangeIterable {
   @SuppressWarnings("unchecked")
   public void testCombined() {
     Long[] timestamps = new Long[] {
-        1379020547042l, // Thu Sep 12 14:15:47 PDT 2013
-        1384204547042l  // Mon Nov 11 13:15:47 PST 2013
+        1379020547042L, // Thu Sep 12 14:15:47 PDT 2013
+        1384204547042L  // Mon Nov 11 13:15:47 PST 2013
     };
     String[] ids = new String[]{
         UUID.randomUUID().toString(), UUID.randomUUID().toString()};
@@ -284,10 +284,10 @@ public class TestKeyRangeIterable {
   @Test
   public void testOneSidedRange() {
     // Thu Sep 12 14:15:47 PDT 2013
-    Constraints c = new Constraints().from("timestamp", 1379020547042l);
+    Constraints c = new Constraints().from("timestamp", 1379020547042L);
 
     Marker sep = new Marker.Builder()
-        .add("year", 2013).add("month", 9).add("day", 11).build();
+        .add("year", 2013).add("month", 9).add("day", 12).build();
     assertIterableEquals(Sets.newHashSet(new MarkerRange(timeCmp).from(sep)),
         c.toKeyRanges(time));
   }
@@ -297,7 +297,7 @@ public class TestKeyRangeIterable {
     Set<T> expectedSet = Sets.newHashSet(expected);
     for (T actual : actualIterable) {
       // need to check as iteration happens because the object is reused
-      Assert.assertTrue("Unexpected record: " + actual,
+      Assert.assertTrue("Unexpected record: " + actual + " expected: " + expectedSet,
           expectedSet.remove(actual));
     }
     Assert.assertEquals("Not all expected records were present: " + expectedSet,

@@ -48,20 +48,20 @@ public class TestSimpleView {
       .setUserId(0)
       .setSessionId("session-0")
       .setIp("localhost")
-      .setTimestamp(System.currentTimeMillis() + 35405168l)
+      .setTimestamp(System.currentTimeMillis() + 35405168L)
       .build();
   protected static final StandardEvent sepEvent = StandardEvent
       .newBuilder(event)
-      .setTimestamp(1379020547042l) // Thu Sep 12 14:15:47 PDT 2013
+      .setTimestamp(1379020547042L) // Thu Sep 12 14:15:47 PDT 2013
       .build();
   protected static final StandardEvent octEvent = StandardEvent
       .newBuilder(event)
-      .setTimestamp(1381612547042l) // Sat Oct 12 14:15:47 PDT 2013
+      .setTimestamp(1381612547042L) // Sat Oct 12 14:15:47 PDT 2013
       .setUserId(1)
       .build();
   protected static final StandardEvent novEvent = StandardEvent
       .newBuilder(event)
-      .setTimestamp(1384204547042l) // Mon Nov 11 13:15:47 PST 2013
+      .setTimestamp(1384204547042L) // Mon Nov 11 13:15:47 PST 2013
       .build();
 
   // from subclasses
@@ -152,11 +152,11 @@ public class TestSimpleView {
 
     // with
     assertContentEquals(Sets.newHashSet(sepEvent, novEvent),
-        testDataset.with("user_id", 0l));
+        testDataset.with("user_id", 0L));
     assertContentEquals(Sets.newHashSet(sepEvent),
-        testDataset.with("user_id", 0l).to("timestamp", octInstant));
+        testDataset.with("user_id", 0L).to("timestamp", octInstant));
     assertContentEquals(Sets.newHashSet(sepEvent),
-        testDataset.to("timestamp", octInstant).with("user_id", 0l));
+        testDataset.to("timestamp", octInstant).with("user_id", 0L));
 
   }
 
