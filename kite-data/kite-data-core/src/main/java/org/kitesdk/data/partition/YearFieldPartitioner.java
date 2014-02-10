@@ -16,8 +16,12 @@
 package org.kitesdk.data.partition;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.DiscreteDomain;
+import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.Range;
+import com.google.common.collect.Ranges;
 import java.util.Calendar;
 import org.kitesdk.data.spi.Predicates;
 
@@ -39,9 +43,96 @@ public class YearFieldPartitioner extends CalendarFieldPartitioner {
     } else if (predicate instanceof Predicates.In) {
       return ((Predicates.In<Long>) predicate).transform(this);
     } else if (predicate instanceof Range) {
-      return Predicates.transformClosed((Range<Long>) predicate, this);
+      return Predicates.transformClosed(
+          Predicates.adjustClosed(
+              (Range<Long>) predicate, DiscreteDomains.longs()),
+          this);
     } else {
       return null;
     }
+  }
+
+  public <S extends Comparable, T extends Comparable<T>>
+  Range<T> excludeEnds(Range<S> range, Function<S, T> func,
+                       DiscreteDomain<S> domain,
+                       DiscreteDomain<T> imageDomain) {
+    Range<S> adjusted = Predicates.adjustClosed(range, domain);
+    if (adjusted.hasLowerBound()) {
+      S lower = adjusted.lowerEndpoint();
+      T lowerImage = func.apply(lower);
+      if (lowerImage.equals(func.apply(domain.previous(lower)))) {
+        // at least one excluded value maps to the same value
+        lowerImage = imageDomain.next(lowerImage);
+      }
+      if (adjusted.hasUpperBound()) {
+        S upper = adjusted.upperEndpoint();
+        T upperImage = func.apply(upper);
+        if (upperImage.equals(func.apply(domain.next(upper)))) {
+          // at least one excluded value maps to the same value
+          upperImage = imageDomain.previous(upperImage);
+        }
+        if (lowerImage.compareTo(upperImage) <= 0) {
+          return Ranges.closed(lowerImage, upperImage);
+        }
+      } else {
+        return Ranges.atLeast(lowerImage);
+      }
+    } else if (adjusted.hasUpperBound()) {
+      S upper = adjusted.upperEndpoint();
+      T upperImage = func.apply(upper);
+      if (upperImage.equals(func.apply(domain.next(upper)))) {
+        // at least one excluded value maps to the same value
+        upperImage = imageDomain.previous(upperImage);
+      }
+      return Ranges.atMost(upperImage);
+    }
+    return null;
+  }
+
+  @Override
+  public Predicate<Integer> projectSatisfied(Predicate<Long> predicate) {
+    if (predicate instanceof Predicates.Exists) {
+      return Predicates.exists();
+    } else if (predicate instanceof Predicates.In) {
+      // not enough information to make a judgement on behalf of the
+      // original predicate. the year may match when month does not
+      return null;
+    } else if (predicate instanceof Range) {
+      //return Predicates.transformClosedConservative(
+      //    (Range<Long>) predicate, this, DiscreteDomains.integers());
+      Range<Long> adjusted = Predicates.adjustClosed(
+          (Range<Long>) predicate, DiscreteDomains.longs());
+      if (adjusted.hasLowerBound()) {
+        long lower = adjusted.lowerEndpoint();
+        int lowerImage = apply(lower);
+        if (apply(lower - 1) == lowerImage) {
+          // at least one excluded value maps to the same value
+          lowerImage += 1;
+        }
+        if (adjusted.hasUpperBound()) {
+          long upper = adjusted.upperEndpoint();
+          int upperImage = apply(upper);
+          if (apply(upper + 1) == upperImage) {
+            // at least one excluded value maps to the same value
+            upperImage -= 1;
+          }
+          if (lowerImage <= upperImage) {
+            return Ranges.closed(lowerImage, upperImage);
+          }
+        } else {
+          return Ranges.atLeast(lowerImage);
+        }
+      } else if (adjusted.hasUpperBound()) {
+        long upper = adjusted.upperEndpoint();
+        int upperImage = apply(upper);
+        if (apply(upper + 1) == upperImage) {
+          // at least one excluded value maps to the same value
+          upperImage -= 1;
+        }
+        return Ranges.atMost(upperImage);
+      }
+    }
+    // could not produce a satisfying predicate
+    return null;
   }
 }

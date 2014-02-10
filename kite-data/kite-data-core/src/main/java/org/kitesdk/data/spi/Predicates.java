@@ -20,6 +20,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.BoundType;
+import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
@@ -37,11 +39,14 @@ public abstract class Predicates {
     return new In<T>(set);
   }
 
+  public static <T> In<T> in(T... set) {
+    return new In<T>(set);
+  }
+
   // This should be a method on Range, like In#transform.
   // Unfortunately, Range is final so we will probably need to re-implement it.
-  @SuppressWarnings("unchecked")
   public static <S extends Comparable, T extends Comparable>
-  Range<T> transformClosed(Range<S> range, Function<S, T> function) {
+  Range<T> transformClosed(Range<S> range, Function<? super S, T> function) {
     if (range.hasLowerBound()) {
       if (range.hasUpperBound()) {
         return Ranges.closed(
@@ -54,6 +59,77 @@ public abstract class Predicates {
       return Ranges.atMost(function.apply(range.upperEndpoint()));
     } else {
       return (Range<T>) Ranges.<T>all();
+    }
+  }
+
+  public static <S extends Comparable, T extends Comparable<T>>
+  Range<T> transformClosedConservative(Range<S> range, Function<S, T> func,
+                              DiscreteDomain<T> domain) {
+    if (range.hasLowerBound()) {
+      S lower = range.lowerEndpoint();
+      // TODO: make sure not checking the bottom applies with generics
+      // the special case, (a, _] and apply(a) == a is handled by skipping a
+      T afterLower = domain.next(func.apply(lower));
+      if (afterLower != null) {
+        if (range.hasUpperBound()) {
+          S upper = range.upperEndpoint();
+          T upperImage = func.apply(upper);
+          // TODO: reimplement upper.equals(upperImage) check for generics
+          // meaning: at the endpoint
+          if (upper.equals(upperImage) && range.upperBoundType() == BoundType.CLOSED) {
+            // include upper
+            return Ranges.closed(afterLower, upperImage);
+          } else {
+            T beforeUpper = domain.previous(upperImage);
+            if (afterLower.compareTo(beforeUpper) <= 0) {
+              return Ranges.closed(afterLower, beforeUpper);
+            }
+          }
+        } else {
+          return Ranges.atLeast(afterLower);
+        }
+      }
+    } else if (range.hasUpperBound()) {
+      S upper = range.upperEndpoint();
+      T upperImage = func.apply(upper);
+      if (upper.equals(upperImage) && range.upperBoundType() == BoundType.CLOSED) {
+        // include upper
+        return Ranges.atMost(upperImage);
+      } else {
+        T beforeUpper = domain.previous(upperImage);
+        if (beforeUpper != null) {
+          return Ranges.atMost(beforeUpper);
+        }
+      }
+    }
+    return null;
+  }
+
+  public static <T extends Comparable>
+  Range<T> adjustClosed(Range<T> range, DiscreteDomain<T> domain) {
+    // adjust to a closed range to avoid catching extra keys
+    if (range.hasLowerBound()) {
+      T lower = range.lowerEndpoint();
+      if (BoundType.OPEN == range.lowerBoundType()) {
+        lower = domain.next(lower);
+      }
+      if (range.hasUpperBound()) {
+        T upper = range.upperEndpoint();
+        if (BoundType.OPEN == range.upperBoundType()) {
+          upper = domain.previous(upper);
+        }
+        return Ranges.closed(lower, upper);
+      } else {
+        return Ranges.atLeast(lower);
+      }
+    } else if (range.hasUpperBound()) {
+      T upper = range.upperEndpoint();
+      if (BoundType.OPEN == range.upperBoundType()) {
+        upper = domain.previous(upper);
+      }
+      return Ranges.atMost(upper);
+    } else {
+      throw new IllegalArgumentException("Invalid range: no endpoints");
     }
   }
 
@@ -93,7 +169,7 @@ public abstract class Predicates {
       return (test != null) && set.contains(test);
     }
 
-    public In<T> filter(Predicate<T> predicate) {
+    public In<T> filter(Predicate<? super T> predicate) {
       try {
         return new In<T>(Iterables.filter(set, predicate));
       } catch (IllegalArgumentException e) {
@@ -102,7 +178,7 @@ public abstract class Predicates {
       }
     }
 
-    public <V> In<V> transform(Function<T, V> function) {
+    public <V> In<V> transform(Function<? super T, V> function) {
       return new In<V>(Iterables.transform(set, function));
     }
 

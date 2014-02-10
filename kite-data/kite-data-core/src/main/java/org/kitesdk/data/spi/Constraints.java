@@ -20,6 +20,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Ranges;
@@ -216,6 +217,81 @@ public class Constraints {
       this.predicates = predicates;
     }
 
+    public EntityPredicate(Map<String, Predicate> predicates, StorageKey key) {
+      ImmutableMap.Builder<String, Predicate> builder = ImmutableMap.builder();
+      PartitionStrategy strategy = key.getPartitionStrategy();
+      Set<String> timeFields = Sets.newHashSet();
+      int i = 0;
+      for (FieldPartitioner fp : strategy.getFieldPartitioners()) {
+        String field = fp.getSourceName();
+        if (fp instanceof CalendarFieldPartitioner) {
+          // keep track of time fields to consider
+          timeFields.add(field);
+        } else {
+          // add the non-time field if it is not satisfied by the StorageKey
+          Predicate original = predicates.get(field);
+          Predicate isSatisfiedBy = fp.projectSatisfied(original);
+          if (!isSatisfiedBy.apply(key.get(i))) {
+            builder.put(field, original);
+          }
+        }
+        i += 1;
+      }
+      // add any time predicates that aren't satisfied by the StorageKey
+      for (String timeField : timeFields) {
+        Predicate<Long> original = predicates.get(timeField);
+        Predicate<Marker> isSatisfiedBy = TimeDomain.get(strategy, timeField)
+            .projectSatisfied(original);
+        if (!isSatisfiedBy.apply(key)) {
+          builder.put(timeField, original);
+        }
+      }
+      this.predicates = builder.build();
+    }
+
+    public EntityPredicate(Map<String, Predicate> predicates,
+                           PartitionStrategy strategy, MarkerRange keyRange) {
+      ImmutableMap.Builder<String, Predicate> builder = ImmutableMap.builder();
+      Set<String> timeFields = Sets.newHashSet();
+      int i = 0;
+      for (FieldPartitioner fp : strategy.getFieldPartitioners()) {
+        String field = fp.getSourceName();
+        if (fp instanceof CalendarFieldPartitioner) {
+          // keep track of time fields to consider
+          timeFields.add(field);
+        } else {
+          String partitionName = fp.getName();
+          // add the non-time field if it is not satisfied by the MarkerRange
+          Predicate original = predicates.get(field);
+          Predicate isSatisfiedBy = fp.projectSatisfied(original);
+          Marker start = keyRange.getStart().getBound();
+          Marker end = keyRange.getEnd().getBound();
+          // check both endpoints. this duplicates a lot of work because we are
+          // using Markers rather than the original predicates
+          if (!isSatisfiedBy.apply(start.get(partitionName)) ||
+              !isSatisfiedBy.apply(end.get(partitionName))) {
+            builder.put(field, original);
+          }
+        }
+        i += 1;
+      }
+      // add any time predicates that aren't satisfied by the MarkerRange
+      for (String timeField : timeFields) {
+        Predicate<Long> original = predicates.get(timeField);
+        Predicate<Marker> isSatisfiedBy = TimeDomain.get(strategy, timeField)
+            .projectSatisfied(original);
+        Marker start = keyRange.getStart().getBound();
+        Marker end = keyRange.getEnd().getBound();
+        // check both endpoints. this duplicates a lot of work because we are
+        // using Markers rather than the original predicates
+        if (!isSatisfiedBy.apply(start) ||
+            !isSatisfiedBy.apply(end)) {
+          builder.put(timeField, original);
+        }
+      }
+      this.predicates = builder.build();
+    }
+
     @Override
     @SuppressWarnings("unchecked")
     public boolean apply(@Nullable E entity) {
@@ -324,7 +400,7 @@ public class Constraints {
 
       // check multi-field time groups
       for (String sourceName : timeFields) {
-        Predicate<StorageKey> timePredicate = TimeDomain
+        Predicate<Marker> timePredicate = TimeDomain
             .get(strategy, sourceName)
             .project(predicates.get(sourceName));
         if (timePredicate != null && !timePredicate.apply(key)) {

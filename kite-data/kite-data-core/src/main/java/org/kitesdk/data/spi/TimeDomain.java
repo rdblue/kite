@@ -23,6 +23,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.BoundType;
+import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
@@ -83,7 +84,7 @@ public class TimeDomain {
     }
   }
 
-  public Predicate<StorageKey> project(Predicate<Long> predicate) {
+  public Predicate<Marker> project(Predicate<Long> predicate) {
     if (predicate instanceof Predicates.In) {
       return new TimeSetPredicate((Predicates.In<Long>) predicate);
     } else if (predicate instanceof Range) {
@@ -93,7 +94,19 @@ public class TimeDomain {
     }
   }
 
-  private class TimeSetPredicate implements Predicate<StorageKey> {
+  public Predicate<Marker> projectSatisfied(Predicate<Long> predicate) {
+    if (predicate instanceof Predicates.Exists) {
+      return Predicates.exists();
+    } else if (predicate instanceof Predicates.In) {
+      return null;
+    } else if (predicate instanceof Range) {
+      return new TimeRangeSatisfiedPredicate((Range<Long>) predicate);
+    } else {
+      return null;
+    }
+  }
+
+  private class TimeSetPredicate implements Predicate<Marker> {
     private final Predicates.In<List<Integer>> times;
 
     private TimeSetPredicate(Predicates.In<Long> times) {
@@ -111,7 +124,7 @@ public class TimeDomain {
     }
 
     @Override
-    public boolean apply(@Nullable StorageKey key) {
+    public boolean apply(@Nullable Marker key) {
       List<Integer> time = Lists
           .newArrayListWithExpectedSize(partitioners.size());
       for (CalendarFieldPartitioner fp : partitioners) {
@@ -126,18 +139,45 @@ public class TimeDomain {
     }
   }
 
-  private class TimeRangePredicate implements Predicate<StorageKey> {
+  /**
+   * Predicate that accepts a {@link StorageKey} if could include an entity
+   * that would be accepted by the original time range.
+   */
+  private class TimeRangePredicate extends TimeRangePredicateImpl {
+    private TimeRangePredicate(Range<Long> timeRange) {
+      // adjust the range end-points if exclusive to avoid extra partitions
+      super(Predicates.adjustClosed(timeRange, DiscreteDomains.longs()),
+          true /* accept end-points */ );
+    }
+  }
+
+  /**
+   * Predicate that accepts a {@link StorageKey} only if entities it includes
+   * must be accepted by the original time range.
+   */
+  private class TimeRangeSatisfiedPredicate extends TimeRangePredicateImpl {
+    private TimeRangeSatisfiedPredicate(Range<Long> timeRange) {
+      super(timeRange, false /* exclude end-points */ );
+    }
+  }
+
+  /**
+   * A common implementation class for time-based range predicates.
+   */
+  private class TimeRangePredicateImpl implements Predicate<Marker> {
     private final boolean hasLower;
     private final boolean hasUpper;
     private final long lower;
     private final long upper;
+    private final boolean acceptEqual;
 
-    private TimeRangePredicate(Range<Long> timeRange) {
-      // adjust to a closed range to avoid catching extra keys
+    private TimeRangePredicateImpl(Range<Long> timeRange, boolean acceptEqual) {
+      this.acceptEqual = acceptEqual;
       this.hasLower = timeRange.hasLowerBound();
+      // adjust to a closed range to avoid catching extra keys
       if (hasLower) {
         this.lower = timeRange.lowerEndpoint() +
-           (BoundType.CLOSED == timeRange.lowerBoundType() ? 0 : 1);
+            (BoundType.CLOSED == timeRange.lowerBoundType() ? 0 : 1);
       } else {
         this.lower = 0;
       }
@@ -151,7 +191,7 @@ public class TimeDomain {
     }
 
     @Override
-    public boolean apply(@Nullable StorageKey key) {
+    public boolean apply(@Nullable Marker key) {
       if (key == null) {
         return false;
       }
@@ -165,7 +205,7 @@ public class TimeDomain {
       return returnVal;
     }
 
-    private boolean checkLower(StorageKey key, long timestamp) {
+    private boolean checkLower(Marker key, long timestamp) {
       for (CalendarFieldPartitioner calField : partitioners) {
         int value = (Integer) key.get(calField.getName());
         int lower = calField.apply(timestamp);
@@ -179,11 +219,11 @@ public class TimeDomain {
         }
         // value was equal to one endpoint, continue checking
       }
-      // each position was satisfied, so the key matches
-      return true;
+      // each position was satisfied, defer to acceptEqual
+      return acceptEqual;
     }
 
-    private boolean checkUpper(StorageKey key, long timestamp) {
+    private boolean checkUpper(Marker key, long timestamp) {
       // same as checkLower, see comments there
       for (CalendarFieldPartitioner calField : partitioners) {
         int value = (Integer) key.get(calField.getName());
@@ -194,7 +234,7 @@ public class TimeDomain {
           return true;
         }
       }
-      return true;
+      return acceptEqual;
     }
 
     @Override

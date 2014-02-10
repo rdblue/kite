@@ -162,4 +162,16 @@ public abstract class FieldPartitioner<S, T> implements Function<S, T>, Comparat
    * @since 0.11.0
    */
   public abstract Predicate<T> project(Predicate<S> predicate);
+
+  /**
+   * Projects a source-data constraint {@link Predicate} into the image of the
+   * backing partition function.
+   *
+   * If the function cannot be projected exactly, the resulting predicate must
+   * only accept a value if the original predicate would have.
+   *
+   * @param predicate
+   * @return
+   */
+  public abstract Predicate<T> projectSatisfied(Predicate<S> predicate);
 }

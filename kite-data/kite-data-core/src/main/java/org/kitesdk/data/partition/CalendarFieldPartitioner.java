@@ -61,6 +61,11 @@ public class CalendarFieldPartitioner extends FieldPartitioner<Long, Integer> {
     return null;
   }
 
+  @Override
+  public Predicate<Integer> projectSatisfied(Predicate<Long> predicate) {
+    return null;
+  }
+
   public int getCalendarField() {
     return calendarField;
   }

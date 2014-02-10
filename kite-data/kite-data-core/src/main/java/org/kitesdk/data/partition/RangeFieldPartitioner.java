@@ -15,11 +15,18 @@
  */
 package org.kitesdk.data.partition;
 
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.BoundType;
+import com.google.common.collect.DiscreteDomain;
+import com.google.common.collect.DiscreteDomains;
 import com.google.common.collect.Range;
+import com.google.common.collect.Ranges;
+import com.google.common.collect.Sets;
 import java.util.Arrays;
 import java.util.List;
 
+import java.util.Set;
 import org.kitesdk.data.FieldPartitioner;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
@@ -34,6 +41,9 @@ public class RangeFieldPartitioner extends FieldPartitioner<String, String> {
 
   private final List<String> upperBounds;
 
+  // lazily constructed DiscreteDomain for upper bounds; use domain()
+  private RangeDomain domain;
+
   public RangeFieldPartitioner(String name, String... upperBounds) {
     super(name, String.class, String.class, upperBounds.length);
     this.upperBounds = Arrays.asList(upperBounds);
@@ -41,6 +51,7 @@ public class RangeFieldPartitioner extends FieldPartitioner<String, String> {
 
   @Override
   public String apply(String value) {
+    // always return the same String object so identity comparison can be used
     for (String upper : upperBounds) {
       if (value.compareTo(upper) <= 0) {
         return upper;
@@ -64,14 +75,40 @@ public class RangeFieldPartitioner extends FieldPartitioner<String, String> {
     } else if (predicate instanceof Range) {
       // must use a closed range:
       //   if this( abc ) => b then this( acc ) => b, so b must be included
-      return Predicates.transformClosed((Range<String>) predicate, this);
+      return Predicates.in(
+          Predicates.transformClosed((Range<String>) predicate, this)
+              .asSet(domain()));
     } else {
       return null;
     }
   }
 
+  @Override
+  public Predicate<String> projectSatisfied(Predicate<String> predicate) {
+    if (predicate instanceof Predicates.Exists) {
+      return Predicates.exists();
+    } else if (predicate instanceof Predicates.In) {
+      // not possible to check all inputs to the predicate
+      return null;
+    } else if (predicate instanceof Range) {
+      Range<String> transformed = Predicates.transformClosedConservative(
+          (Range<String>) predicate, this, domain());
+      if (transformed != null) {
+        return Predicates.in(transformed.asSet(domain()));
+      }
+    }
+    return null;
+  }
+
   public List<String> getUpperBounds() {
     return upperBounds;
+  }
+
+  private RangeDomain domain() {
+    if (domain == null) {
+      this.domain = new RangeDomain();
+    }
+    return domain;
   }
 
   @Override
@@ -101,5 +138,49 @@ public class RangeFieldPartitioner extends FieldPartitioner<String, String> {
   public String toString() {
     return Objects.toStringHelper(this).add("name", getName())
         .add("upperBounds", upperBounds).toString();
+  }
+
+  /**
+   * A DiscreteDomain for this partitioner's set of upper bounds.
+   *
+   * Used for Range#asSet, Predicates.transformClosed,
+   * Predicates.excludeEndpoints
+   *
+   * This DiscreteDomain will throw IllegalArgumentException for values that
+   * are after the last upper bound, and will throw IndexOutOfBoundsException
+   * when next or previous is called on the last or first bound
+   */
+  private class RangeDomain extends DiscreteDomain<String> {
+    @Override
+    public String next(String value) {
+      // using apply ensures indexOf returns a real index
+      int nextIndex = upperBounds.indexOf(apply(value)) + 1;
+      return nextIndex == upperBounds.size() ? null : upperBounds.get(nextIndex);
+    }
+
+    @Override
+    public String previous(String value) {
+      // using apply ensures indexOf returns a real index
+      int index = upperBounds.indexOf(apply(value));
+      return index == 0 ? null : upperBounds.get(index - 1);
+    }
+
+    @Override
+    public long distance(String start, String end) {
+      // using apply ensures indexOf returns a real index
+      return (upperBounds.indexOf(apply(end)) -
+          upperBounds.indexOf(apply(start)));
+    }
+
+    @Override
+    public String minValue() {
+      return upperBounds.get(0);
+    }
+
+    @Override
+    public String maxValue() {
+      DiscreteDomains.integers();
+      return upperBounds.get(upperBounds.size() - 1);
+    }
   }
 }

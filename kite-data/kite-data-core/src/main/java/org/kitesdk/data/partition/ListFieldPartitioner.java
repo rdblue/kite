@@ -86,6 +86,28 @@ public class ListFieldPartitioner<S> extends FieldPartitioner<S, Integer> {
   }
 
   @Override
+  public Predicate<Integer> projectSatisfied(Predicate<S> predicate) {
+    if (predicate instanceof Predicates.Exists) {
+      // FIXME: others return Predicates.exists(), which is wrong.
+      // if apply(null) is non-null, this is wrong.
+      return Predicates.exists();
+    } else if (predicate instanceof Predicates.In ||
+               predicate instanceof Range) {
+      Set<Integer> possibleValues = Sets.newHashSet();
+      for (int i = 0; i < values.size(); i += 1) {
+        boolean matchedAll = true;
+        for (S entry : values.get(i)) {
+          matchedAll = matchedAll && predicate.apply(entry);
+        }
+        if (matchedAll) {
+          possibleValues.add(i);
+        }
+      }
+    }
+    return null;
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;
