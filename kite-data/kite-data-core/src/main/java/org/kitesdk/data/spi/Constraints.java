@@ -16,23 +16,37 @@
 
 package org.kitesdk.data.spi;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Ranges;
 import com.google.common.collect.Sets;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
+import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.ByteBuffer;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.BinaryDecoder;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.specific.SpecificData;
 import org.kitesdk.data.FieldPartitioner;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.partition.CalendarFieldPartitioner;
@@ -47,8 +61,25 @@ public class Constraints {
 
   private final Map<String, Predicate> constraints;
 
+  /**
+   * Deserialize a constraint set from a {@link ByteBuffer}.
+   *
+   * @param entitySchema a Schema for entities
+   * @param buffer a ByteBuffer with a serialized constraint set
+   * @return a {@link Constraints} set
+   * @throws IOException
+   * @see Constraints#toByteBuffer(org.apache.avro.Schema)
+   */
+  public static Constraints fromByteBuffer(Schema entitySchema, ByteBuffer buffer) throws IOException {
+    return new Constraints(deserialize(entitySchema, buffer));
+  }
+
   public Constraints() {
     this.constraints = ImmutableMap.of();
+  }
+
+  private Constraints(Map<String, Predicate> constraints) {
+    this.constraints = ImmutableMap.copyOf(constraints);
   }
 
   private Constraints(Map<String, Predicate> constraints,
@@ -56,6 +87,18 @@ public class Constraints {
     Map<String, Predicate> copy = Maps.newHashMap(constraints);
     copy.put(name, predicate);
     this.constraints = ImmutableMap.copyOf(copy);
+  }
+
+  /**
+   * Serialize this constraint set to a {@link ByteBuffer}.
+   *
+   * @param entitySchema a Schema for entities
+   * @return a ByteBuffer of this serialized constraint set
+   * @throws IOException
+   * @see Constraints#fromByteBuffer(org.apache.avro.Schema, java.nio.ByteBuffer)
+   */
+  public ByteBuffer toByteBuffer(Schema entitySchema) throws IOException {
+    return serialize(entitySchema, constraints);
   }
 
   /**
@@ -202,6 +245,65 @@ public class Constraints {
       // previous must be null, return the new constraint
       return additional;
     }
+  }
+
+  private static Schema combineFieldTypes(Schema entitySchema) {
+    Preconditions.checkArgument(entitySchema.getType() == Schema.Type.RECORD,
+        "Entity schema must be a record schema");
+    Set<Schema> possibleTypes = Sets.newHashSet();
+    for (Schema.Field field : entitySchema.getFields()) {
+      if (field.schema().getType() == Schema.Type.UNION) {
+        // can't nest schemas, add the union's sub-types
+        for (Schema type : field.schema().getTypes()) {
+          possibleTypes.add(type);
+        }
+      } else {
+        possibleTypes.add(field.schema());
+      }
+    }
+
+    return Schema.createUnion(Lists.newArrayList(possibleTypes));
+  }
+
+  @VisibleForTesting
+  @SuppressWarnings("unchecked")
+  static ByteBuffer serialize(Schema entitySchema, Map<String, Predicate> constraints) throws IOException {
+    ConstraintRecord record = new ConstraintRecord(
+        combineFieldTypes(entitySchema));
+    SpecificData data = SpecificData.get();
+    DatumWriter<ConstraintRecord> writer =
+        data.createDatumWriter(record.getSchema());
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    BinaryEncoder enc = EncoderFactory.get().binaryEncoder(out, null);
+    for (Map.Entry<String, Predicate> entry : constraints.entrySet()) {
+      record.setConstraint(entry.getKey(), entry.getValue());
+      writer.write(record, enc);
+    }
+    enc.flush();
+
+    return ByteBuffer.wrap(out.toByteArray());
+  }
+
+  @VisibleForTesting
+  @SuppressWarnings("unchecked")
+  static Map<String, Predicate> deserialize(Schema entitySchema, ByteBuffer buf) throws IOException {
+    ConstraintRecord record = new ConstraintRecord(
+        combineFieldTypes(entitySchema));
+    SpecificData data = SpecificData.get();
+    DatumReader<ConstraintRecord> reader = data.createDatumReader(record.getSchema());
+
+    Map<String, Predicate> constraints = Maps.newHashMap();
+    BinaryDecoder dec = DecoderFactory.get().binaryDecoder(buf.array(), null);
+    try {
+      while ((record = reader.read(record, dec)) != null) {
+        constraints.put(record.getSourceName(), record.getPredicate());
+      }
+    } catch (EOFException e) {
+      // finished reading constraints
+    }
+
+    return constraints;
   }
 
   /**
