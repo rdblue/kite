@@ -16,6 +16,10 @@
 package org.kitesdk.data;
 
 import com.google.common.collect.ImmutableList;
+import org.kitesdk.data.spi.partition.DayOfMonthFieldPartitioner;
+import org.kitesdk.data.spi.partition.HourFieldPartitioner;
+import org.kitesdk.data.spi.partition.MinuteFieldPartitioner;
+import org.kitesdk.data.spi.partition.MonthFieldPartitioner;
 import org.kitesdk.data.spi.partition.PartitionFunctions;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
@@ -35,6 +39,7 @@ import org.kitesdk.data.spi.partition.RangeFieldPartitioner;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import org.kitesdk.data.spi.FieldPartitioner;
+import org.kitesdk.data.spi.partition.YearFieldPartitioner;
 
 /**
  * <p>
@@ -284,28 +289,6 @@ public class PartitionStrategy {
     }
 
     /**
-     * Configure an identity partitioner for strings with a cardinality hint of
-     * {@code buckets} size.
-     * 
-     * @param name
-     *          The entity field name from which to get values to be
-     *          partitioned.
-     * @param buckets
-     *          A hint as to the number of partitions that will be created (i.e.
-     *          the number of discrete values for the field {@code name} in the
-     *          data).
-     * @return An instance of the builder for method chaining.
-     * @see IdentityFieldPartitioner
-     * @deprecated Use {@link #identity(String, Class, int)}.
-     */
-    @Deprecated
-    @SuppressWarnings("unchecked")
-    public Builder identity(String name, int buckets) {
-      fieldPartitioners.add(new IdentityFieldPartitioner(name, String.class, buckets));
-      return this;
-    }
-
-    /**
      * Configure an identity partitioner for a given type with a cardinality hint of
      * {@code buckets} size.
      *
@@ -321,10 +304,41 @@ public class PartitionStrategy {
      * @return An instance of the builder for method chaining.
      * @see IdentityFieldPartitioner
      * @since 0.8.0
+     * @deprecated will be removed in 0.14.0;
+     *          use {@link #identity(String, String, Class, int)}
      */
+    @Deprecated
     @SuppressWarnings("unchecked")
     public <S> Builder identity(String name, Class<S> type, int buckets) {
-      fieldPartitioners.add(new IdentityFieldPartitioner(name, type, buckets));
+      fieldPartitioners.add(
+          new IdentityFieldPartitioner(name, name + "_copy", type, buckets));
+      return this;
+    }
+
+    /**
+     * Configure an identity partitioner for a given type with a cardinality hint of
+     * {@code buckets} size.
+     *
+     * @param sourceName
+     *          The entity field name from which to get values to be
+     *          partitioned.
+     * @param name
+     *          A name for the partition field
+     * @param type
+     *          The type of the field. This must match the schema.
+     * @param buckets
+     *          A hint as to the number of partitions that will be created (i.e.
+     *          the number of discrete values for the field {@code name} in the
+     *          data).
+     * @return An instance of the builder for method chaining.
+     * @see IdentityFieldPartitioner
+     * @since 0.8.0
+     */
+    @SuppressWarnings("unchecked")
+    public <S> Builder identity(String sourceName, String name, Class<S> type,
+                                int buckets) {
+      fieldPartitioners.add(
+          new IdentityFieldPartitioner(sourceName, name, type, buckets));
       return this;
     }
 
@@ -372,7 +386,7 @@ public class PartitionStrategy {
      * @since 0.3.0
      */
     public Builder year(String sourceName, String name) {
-      fieldPartitioners.add(PartitionFunctions.year(sourceName, name));
+      fieldPartitioners.add(new YearFieldPartitioner(sourceName, name));
       return this;
     }
 
@@ -387,7 +401,8 @@ public class PartitionStrategy {
      * @since 0.8.0
      */
     public Builder year(String sourceName) {
-      return year(sourceName, "year");
+      fieldPartitioners.add(new YearFieldPartitioner(sourceName));
+      return this;
     }
 
     /**
@@ -403,7 +418,7 @@ public class PartitionStrategy {
      * @since 0.3.0
      */
     public Builder month(String sourceName, String name) {
-      fieldPartitioners.add(PartitionFunctions.month(sourceName, name));
+      fieldPartitioners.add(new MonthFieldPartitioner(sourceName, name));
       return this;
     }
 
@@ -418,7 +433,8 @@ public class PartitionStrategy {
      * @since 0.8.0
      */
     public Builder month(String sourceName) {
-      return this.month(sourceName, "month");
+      fieldPartitioners.add(new MonthFieldPartitioner(sourceName));
+      return this;
     }
 
     /**
@@ -434,7 +450,7 @@ public class PartitionStrategy {
      * @since 0.3.0
      */
     public Builder day(String sourceName, String name) {
-      fieldPartitioners.add(PartitionFunctions.day(sourceName, name));
+      fieldPartitioners.add(new DayOfMonthFieldPartitioner(sourceName, name));
       return this;
     }
 
@@ -449,7 +465,8 @@ public class PartitionStrategy {
      * @since 0.8.0
      */
     public Builder day(String sourceName) {
-      return this.day(sourceName, "day");
+      fieldPartitioners.add(new DayOfMonthFieldPartitioner(sourceName));
+      return this;
     }
 
     /**
@@ -465,7 +482,7 @@ public class PartitionStrategy {
      * @since 0.3.0
      */
     public Builder hour(String sourceName, String name) {
-      fieldPartitioners.add(PartitionFunctions.hour(sourceName, name));
+      fieldPartitioners.add(new HourFieldPartitioner(sourceName, name));
       return this;
     }
 
@@ -480,7 +497,8 @@ public class PartitionStrategy {
      * @since 0.8.0
      */
     public Builder hour(String sourceName) {
-      return this.hour(sourceName, "hour");
+      fieldPartitioners.add(new HourFieldPartitioner(sourceName));
+      return this;
     }
 
     /**
@@ -496,7 +514,7 @@ public class PartitionStrategy {
      * @since 0.3.0
      */
     public Builder minute(String sourceName, String name) {
-      fieldPartitioners.add(PartitionFunctions.minute(sourceName, name));
+      fieldPartitioners.add(new MinuteFieldPartitioner(sourceName, name));
       return this;
     }
 
@@ -511,7 +529,8 @@ public class PartitionStrategy {
      * @since 0.8.0
      */
     public Builder minute(String sourceName) {
-      return minute(sourceName, "minute");
+      fieldPartitioners.add(new MinuteFieldPartitioner(sourceName));
+      return this;
     }
 
     /**
