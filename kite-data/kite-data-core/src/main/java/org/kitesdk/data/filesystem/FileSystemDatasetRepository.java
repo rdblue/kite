@@ -44,6 +44,8 @@ import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.kitesdk.data.spi.SchemaUtil;
+import org.kitesdk.data.spi.partition.IdentityFieldPartitioner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -307,7 +309,7 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
    * @return a partition key representing the partition at the given path
    * @since 0.4.0
    */
-  @SuppressWarnings("deprecation")
+  @SuppressWarnings({"unchecked", "deprecation"})
   public static PartitionKey partitionKeyForPath(Dataset dataset, URI partitionPath) {
     Preconditions.checkState(dataset.getDescriptor().isPartitioned(),
         "Attempt to get a partition on a non-partitioned dataset (name:%s)",
@@ -337,6 +339,7 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
           fieldPartitioners.size()));
     }
 
+    Schema schema = dataset.getDescriptor().getSchema();
     List<Object> values = Lists.newArrayList();
     int i = 0;
     for (String part : parts) {
@@ -353,8 +356,14 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
             "'%s' in partition %s.", fieldName, partitionUri));
       }
       String stringValue = split.next();
-      Object value = fp.valueFromString(stringValue);
-      values.add(value);
+
+      if (fp instanceof IdentityFieldPartitioner) {
+        Class<? extends Object> expected = SchemaUtil.TYPE_TO_CLASS.get(
+            schema.getField(fp.getSourceName()).schema().getType());
+        values.add(fp.valueFromString(stringValue, expected));
+      } else {
+        values.add(fp.valueFromString(stringValue, fp.getType()));
+      }
     }
     return org.kitesdk.data.impl.Accessor.getDefault().newPartitionKey(
         values.toArray(new Object[values.size()]));
