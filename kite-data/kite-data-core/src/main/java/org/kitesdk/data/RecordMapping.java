@@ -15,96 +15,21 @@
  */
 package org.kitesdk.data;
 
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
-import org.kitesdk.data.spi.ColumnMappingParser;
+import org.kitesdk.data.spi.BigTableMapping;
+import org.kitesdk.data.spi.FieldMapping;
 
 /**
  * A descriptor for an entity's column mappings, which defines how an entity
  * maps to a columnar store.
  */
 @Immutable
-public class ColumnMapping {
-
-  private final Collection<FieldMapping> fieldMappings;
-
-  private ColumnMapping(Collection<FieldMapping> mappings) {
-    fieldMappings = ImmutableList.copyOf(mappings);
-  }
-
-  public Collection<FieldMapping> getFieldMappings() {
-    return fieldMappings;
-  }
-
-  public FieldMapping getFieldMapping(String fieldName) {
-    for (FieldMapping fm : fieldMappings) {
-      if (fm.getFieldName().equals(fieldName)) {
-        return fm;
-      }
-    }
-    return null;
-  }
+public class RecordMapping {
 
   /**
-   * Get the columns required by this schema.
-   *
-   * @return The set of columns
-   */
-  public Set<String> getRequiredColumns() {
-    Set<String> set = new HashSet<String>();
-    for (FieldMapping fieldMapping : fieldMappings) {
-      if (FieldMapping.MappingType.KEY != fieldMapping.getMappingType()) {
-        set.add(fieldMapping.getFamilyAsString() + ":"
-            + fieldMapping.getQualifierAsString());
-      }
-    }
-    return set;
-  }
-
-  /**
-   * Get the column families required by this schema.
-   *
-   * @return The set of column families.
-   */
-  public Set<String> getRequiredColumnFamilies() {
-    Set<String> set = new HashSet<String>();
-    for (FieldMapping mapping : fieldMappings) {
-      if (FieldMapping.MappingType.KEY != mapping.getMappingType())
-      set.add(mapping.getFamilyAsString());
-    }
-    return set;
-  }
-
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    ColumnMapping that = (ColumnMapping) o;
-    return Objects.equal(fieldMappings, that.fieldMappings);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(fieldMappings.hashCode());
-  }
-
-  @Override
-  public String toString() {
-    return ColumnMappingParser.toString(this, false);
-  }
-
-  public String toString(boolean pretty) {
-    return ColumnMappingParser.toString(this, true);
-  }
-
-  /**
-   * A fluent builder to aid in constructing a {@link ColumnMapping}.
+   * A fluent builder to aid in constructing a {@link RecordMapping}.
    */
   public static class Builder {
     boolean hasOCCVersion = false;
@@ -233,37 +158,13 @@ public class ColumnMapping {
     }
 
     /**
-     * Adds a {@link FieldMapping}.
-     *
-     * @param fieldMapping A {@code FieldMapping}
-     * @return This Builder for method chaining
-     */
-    public Builder fieldMapping(FieldMapping fieldMapping) {
-      addField(fieldMapping);
-      return this;
-    }
-
-    /**
-     * Adds each {@link FieldMapping} from a collection.
-     *
-     * @param fieldMappings A collection of {@code FieldMapping} objects
-     * @return This Builder for method chaining
-     */
-    public Builder fieldMappings(Collection<FieldMapping> fieldMappings) {
-      for (FieldMapping fieldMapping : fieldMappings) {
-        addField(fieldMapping);
-      }
-      return this;
-    }
-
-    /**
-     * Builds and returns a {@link ColumnMapping} from the fields
+     * Builds and returns a {@link RecordMapping} from the fields
      * mappings added to this builder.
      *
-     * @return a ColumnMapping
+     * @return a RecordMapping
      */
-    public ColumnMapping build() {
-      return new ColumnMapping(fieldMappings);
+    public RecordMapping build() {
+      return new BigTableMapping(fieldMappings);
     }
 
     /**
@@ -278,7 +179,7 @@ public class ColumnMapping {
      *
      * @param fm a {@code FieldMapping} to add to this builder
      */
-    private void addField(FieldMapping fm) {
+    protected void addField(FieldMapping fm) {
       // validate!
       if (fm.getMappingType() == FieldMapping.MappingType.OCC_VERSION) {
         ValidationException.check(!hasOCCVersion,

@@ -42,7 +42,9 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.reflect.ReflectData;
 import org.apache.hadoop.fs.Path;
-import org.kitesdk.data.spi.ColumnMappingParser;
+import org.kitesdk.data.spi.BigTableMapping;
+import org.kitesdk.data.spi.RecordMappingParser;
+import org.kitesdk.data.spi.FieldMapping;
 import org.kitesdk.data.spi.PartitionStrategyParser;
 import org.kitesdk.data.spi.SchemaUtil;
 import org.kitesdk.data.spi.URIPattern;
@@ -68,7 +70,7 @@ public class DatasetDescriptor {
   private final URI location;
   private final Map<String, String> properties;
   private final PartitionStrategy partitionStrategy;
-  private final ColumnMapping columnMappings;
+  private final RecordMapping recordMapping;
 
   /**
    * Create an instance of this class with the supplied {@link Schema},
@@ -85,13 +87,13 @@ public class DatasetDescriptor {
   /**
    * Create an instance of this class with the supplied {@link Schema}, optional
    * URL, {@link Format}, optional location URL, optional
-   * {@link PartitionStrategy}, and optional {@link ColumnMapping}.
+   * {@link PartitionStrategy}, and optional {@link RecordMapping}.
    */
   public DatasetDescriptor(Schema schema, @Nullable URL schemaUrl,
       Format format, @Nullable URI location,
       @Nullable Map<String, String> properties,
       @Nullable PartitionStrategy partitionStrategy,
-      @Nullable ColumnMapping columnMapping) {
+      @Nullable RecordMapping recordMapping) {
     // URI can be null if the descriptor is configuring a new Dataset
     Preconditions.checkArgument(
         (location == null) || (location.getScheme() != null),
@@ -107,7 +109,7 @@ public class DatasetDescriptor {
       this.properties = ImmutableMap.of();
     }
     this.partitionStrategy = partitionStrategy;
-    this.columnMappings = columnMapping;
+    this.recordMapping = recordMapping;
   }
 
   /**
@@ -211,12 +213,12 @@ public class DatasetDescriptor {
   }
 
   /**
-   * Get the {@link ColumnMapping}.
+   * Get the {@link RecordMapping}.
    *
-   * @return ColumnMapping
+   * @return RecordMapping
    */
-  public ColumnMapping getColumnMapping() {
-    return columnMappings;
+  public RecordMapping getColumnMapping() {
+    return recordMapping;
   }
 
   /**
@@ -229,16 +231,16 @@ public class DatasetDescriptor {
 
   /**
    * Returns true if an associated dataset is column mapped (that is, has an
-   * associated {@link ColumnMapping}), false otherwise.
+   * associated {@link RecordMapping}), false otherwise.
    */
   public boolean isColumnMapped() {
-    return columnMappings != null;
+    return recordMapping != null;
   }
 
   @Override
   public int hashCode() {
     return Objects.hashCode(schema, format, location, properties,
-        partitionStrategy, columnMappings);
+        partitionStrategy, recordMapping);
   }
 
   @Override
@@ -256,7 +258,7 @@ public class DatasetDescriptor {
         Objects.equal(location, other.location) &&
         Objects.equal(properties, other.properties) &&
         Objects.equal(partitionStrategy, other.partitionStrategy) &&
-        Objects.equal(columnMappings, columnMappings));
+        Objects.equal(recordMapping, recordMapping));
   }
 
   @Override
@@ -268,7 +270,7 @@ public class DatasetDescriptor {
         .add("properties", properties)
         .add("partitionStrategy", partitionStrategy);
     if (isColumnMapped()) {
-      helper.add("columnMapping", columnMappings);
+      helper.add("recordMapping", recordMapping);
     }
     return helper.toString();
   }
@@ -289,7 +291,7 @@ public class DatasetDescriptor {
     private URI location;
     private Map<String, String> properties;
     private PartitionStrategy partitionStrategy;
-    private ColumnMapping columnMapping;
+    private RecordMapping recordMapping;
 
     public Builder() {
       this.properties = Maps.newHashMap();
@@ -706,23 +708,23 @@ public class DatasetDescriptor {
     }
 
     /**
-     * Configure the dataset's column mapping descriptor (optional)
+     * Configure the dataset's record mapping descriptor (optional)
      *
-     * @param columnMappings
-     *          A ColumnMapping
+     * @param recordMapping
+     *          A RecordMapping
      * @return This builder for method chaining
      */
-    public Builder columnMapping(
-        @Nullable ColumnMapping columnMappings) {
-      this.columnMapping = columnMappings;
+    public Builder recordMapping(
+        @Nullable RecordMapping recordMapping) {
+      this.recordMapping = recordMapping;
       return this;
     }
 
     /**
-     * Configure the dataset's column mapping descriptor from a File.
+     * Configure the dataset's record mapping descriptor from a File.
      *
      * The File contents must be a JSON-formatted column mapping. This format
-     * can produced by {@link ColumnMapping#toString()}.
+     * can produced by {@link RecordMapping#toString()}.
      *
      * @param file
      *          The file
@@ -732,16 +734,16 @@ public class DatasetDescriptor {
      * @throws DatasetIOException
      *          If there is an IOException accessing the file contents
      */
-    public Builder columnMapping(File file) {
-      this.columnMapping = new ColumnMappingParser().parse(file);
+    public Builder recordMapping(File file) {
+      this.recordMapping = new RecordMappingParser().parse(file);
       return this;
     }
 
     /**
-     * Configure the dataset's column mapping descriptor from an InputStream.
+     * Configure the dataset's record mapping descriptor from an InputStream.
      *
      * The InputStream contents must be a JSON-formatted column mapping. This
-     * format can produced by {@link ColumnMapping#toString()}.
+     * format can produced by {@link RecordMapping#toString()}.
      *
      * @param in
      *          The input stream
@@ -751,16 +753,16 @@ public class DatasetDescriptor {
      * @throws DatasetIOException
      *          If there is an IOException accessing the InputStream contents
      */
-    public Builder columnMapping(InputStream in) {
-      this.columnMapping = new ColumnMappingParser().parse(in);
+    public Builder recordMapping(InputStream in) {
+      this.recordMapping = new RecordMappingParser().parse(in);
       return this;
     }
 
     /**
-     * Configure the dataset's column mappings from a String literal.
+     * Configure the dataset's record mapping from a String literal.
      *
      * The String literal is a JSON-formatted representation that can be
-     * produced by {@link ColumnMapping#toString()}.
+     * produced by {@link RecordMapping#toString()}.
      *
      * @param literal
      *          A column mapping String literal
@@ -768,13 +770,13 @@ public class DatasetDescriptor {
      * @throws ValidationException
      *          If the literal is not valid JSON-encoded column mappings
      */
-    public Builder columnMappingLiteral(String literal) {
-      this.columnMapping = new ColumnMappingParser().parse(literal);
+    public Builder recordMappingLiteral(String literal) {
+      this.recordMapping = new RecordMappingParser().parse(literal);
       return this;
     }
 
     /**
-     * Configure the dataset's column mappings from a URI.
+     * Configure the dataset's record mapping from a URI.
      *
      * @param uri
      *          A URI to a column mapping JSON file
@@ -784,11 +786,11 @@ public class DatasetDescriptor {
      * @throws java.io.IOException
      *          If accessing the URI results in an IOException
      */
-    public Builder columnMappingUri(URI uri) throws IOException {
+    public Builder recordMappingUri(URI uri) throws IOException {
       // special support for resource URIs
       Map<String, String> match = RESOURCE_URI_PATTERN.getMatch(uri);
       if (match != null) {
-        return columnMapping(
+        return recordMapping(
             Resources.getResource(match.get(RESOURCE_PATH)).openStream());
       }
 
@@ -797,14 +799,14 @@ public class DatasetDescriptor {
       try {
         in = toURL(uri).openStream();
         threw = false;
-        return columnMapping(in);
+        return recordMapping(in);
       } finally {
         Closeables.close(in, threw);
       }
     }
 
     /**
-     * Configure the dataset's column mappings from a String URI.
+     * Configure the dataset's record mapping from a String URI.
      *
      * @param uri
      *          A String URI to a column mapping JSON file
@@ -816,9 +818,9 @@ public class DatasetDescriptor {
      * @throws URISyntaxException
      *          If {@code uri} is not a valid URI
      */
-    public Builder columnMappingUri(String uri)
+    public Builder recordMappingUri(String uri)
         throws URISyntaxException, IOException {
-      return columnMappingUri(new URI(uri));
+      return recordMappingUri(new URI(uri));
     }
 
     /**
@@ -842,21 +844,21 @@ public class DatasetDescriptor {
       checkPartitionStrategy(schema, partitionStrategy);
 
       // if no column mappings are present, check for them in the schema
-      if (columnMapping == null) {
-        ColumnMappingParser parser = new ColumnMappingParser();
+      if (recordMapping == null) {
+        RecordMappingParser parser = new RecordMappingParser();
         if (parser.hasEmbeddedColumnMapping(schema)) {
-          this.columnMapping = parser.parseFromSchema(schema);
+          this.recordMapping = parser.parseFromSchema(schema);
         } else if (parser.hasEmbeddedFieldMappings(schema)) {
-          this.columnMapping = parser.parseFromSchemaFields(schema);
+          this.recordMapping = parser.parseFromSchemaFields(schema);
         }
       }
 
-      checkColumnMappings(schema, partitionStrategy, columnMapping);
+      checkColumnMappings(schema, partitionStrategy, recordMapping);
       // TODO: verify that all fields have a mapping?
 
       return new DatasetDescriptor(
           schema, schemaUrl, format, location, properties, partitionStrategy,
-          columnMapping);
+          recordMapping);
     }
 
     private static void checkPartitionStrategy(Schema schema, PartitionStrategy strategy) {
@@ -882,14 +884,19 @@ public class DatasetDescriptor {
 
   private static void checkColumnMappings(Schema schema,
                                           PartitionStrategy strategy,
-                                          ColumnMapping mappings) {
-    if (mappings == null) {
+                                          RecordMapping mapping) {
+    if (mapping == null) {
       return;
+    } else if (!(mapping instanceof BigTableMapping)) {
+      throw new IllegalArgumentException(
+          "Unknown mapping: " + mapping.getClass());
     }
+    BigTableMapping tableMapping = (BigTableMapping) mapping;
+
     Preconditions.checkState(schema.getType() == Schema.Type.RECORD,
         "Cannot map non-records: " + schema);
     Set<String> keyMappedFields = Sets.newHashSet();
-    for (FieldMapping fm : mappings.getFieldMappings()) {
+    for (FieldMapping fm : tableMapping.getFieldMappings()) {
       Schema.Field field = schema.getField(fm.getFieldName());
       ValidationException.check(field != null,
           "Cannot map field %s (missing from schema)", fm.getFieldName());

@@ -20,17 +20,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import org.junit.Assert;
 import org.junit.Test;
-import org.kitesdk.data.ColumnMapping;
+import org.kitesdk.data.RecordMapping;
 import org.kitesdk.data.DatasetIOException;
 import org.kitesdk.data.TestHelpers;
 import org.kitesdk.data.ValidationException;
 
-public class TestColumnMappingParser {
+public class TestRecordMappingParser {
 
-  private static ColumnMappingParser parser = new ColumnMappingParser();
+  private static RecordMappingParser parser = new RecordMappingParser();
 
-  public static void checkParser(ColumnMapping expected, String json) {
-    ColumnMapping parsed = parser.parse(json);
+  public static void checkParser(RecordMapping expected, String json) {
+    RecordMapping parsed = parser.parse(json);
     Assert.assertEquals(expected, parsed);
 
     parsed = parser.parse(expected.toString());
@@ -39,7 +39,7 @@ public class TestColumnMappingParser {
 
   @Test
   public void testMultipleMappings() {
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
         .key("key_field")
         .column("username", "meta", "username")
         .column("email", "meta", "email")
@@ -60,7 +60,7 @@ public class TestColumnMappingParser {
         "{\"source\": \"counter_field2\", \"type\": \"counter\"," +
             "\"family\": \"meta\", \"qualifier\": \"counter_field2\"}\n" +
         "]\n");
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .key("key_field")
             .column("username", "meta", "username")
             .column("email", "meta", "email")
@@ -104,7 +104,7 @@ public class TestColumnMappingParser {
 
   @Test
   public void testKeyMapping() {
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .key("s")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"key\"} ]");
@@ -120,17 +120,17 @@ public class TestColumnMappingParser {
 
   @Test
   public void testColumnMapping() {
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .column("s", "f", "q")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"column\", \"value\": \"f:q\"} ]");
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .column("s", "f", "q")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"column\"," +
             "\"family\": \"f\", \"qualifier\": \"q\"} ]");
     // if both value and family/qualifier are present, family/qualifier wins
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .column("s", "fam", "qual")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"column\", \"value\": \"f:q\", " +
@@ -220,34 +220,34 @@ public class TestColumnMappingParser {
 
   @Test
   public void testKeyAsColumnMapping() {
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .keyAsColumn("s", "f")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"keyAsColumn\", \"value\": \"f\"} ]");
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .keyAsColumn("s", "f", "p")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"keyAsColumn\"," +
             "\"value\": \"f:p\"} ]");
 
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .keyAsColumn("s", "f")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"keyAsColumn\"," +
             "\"family\": \"f\" } ]");
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .keyAsColumn("s", "f", "p")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"keyAsColumn\"," +
             "\"family\": \"f\", \"prefix\": \"p\" } ]");
     // if both family is present, family wins
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .keyAsColumn("s", "fam")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"keyAsColumn\", \"value\": \"f\", " +
             "\"family\": \"fam\"} ]");
     // prefix wins
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .keyAsColumn("s", "fam", "pre")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"keyAsColumn\"," +
@@ -309,18 +309,18 @@ public class TestColumnMappingParser {
 
   @Test
   public void testCounterMapping() {
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .counter("s", "f", "q")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"counter\", \"value\": \"f:q\"} ]");
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .counter("s", "f", "q")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"counter\"," +
             "\"family\": \"f\", \"qualifier\": \"q\"} ]"
     );
     // if both value and family/qualifier are present, family/qualifier wins
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .counter("s", "fam", "qual")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"counter\", \"value\": \"f:q\", " +
@@ -410,11 +410,11 @@ public class TestColumnMappingParser {
 
   @Test
   public void testOCCVersionMapping() {
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .occ("s")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"occVersion\"} ]");
-    checkParser(new ColumnMapping.Builder()
+    checkParser(new RecordMapping.Builder()
             .version("s")
             .build(),
         "[ {\"source\": \"s\", \"type\": \"occVersion\"} ]");
@@ -431,7 +431,7 @@ public class TestColumnMappingParser {
   @Test
   public void testNumericInsteadOfString() {
     // coerced to a string
-    checkParser(new ColumnMapping.Builder().key("34").build(),
+    checkParser(new RecordMapping.Builder().key("34").build(),
         "[ {\"type\": \"key\", \"source\": 34} ]");
   }
 
