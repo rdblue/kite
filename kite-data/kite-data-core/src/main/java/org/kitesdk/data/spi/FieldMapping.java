@@ -18,6 +18,7 @@ package org.kitesdk.data.spi;
 import com.google.common.base.Objects;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import org.kitesdk.data.DatasetIOException;
 
@@ -95,7 +96,8 @@ public class FieldMapping {
   private final byte[] qualifier;
 
   private FieldMapping(String fieldName, MappingType mappingType,
-      String family, String qualifier, String prefix) {
+      @Nullable String family, @Nullable String qualifier,
+      @Nullable String prefix) {
     this.fieldName = fieldName;
     this.mappingType = mappingType;
     this.prefix = prefix;
