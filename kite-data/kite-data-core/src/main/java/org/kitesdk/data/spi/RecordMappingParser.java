@@ -28,14 +28,13 @@ import java.io.InputStream;
 import java.io.StringWriter;
 import java.util.Iterator;
 import org.apache.avro.Schema;
-import org.kitesdk.data.ColumnMapping;
+import org.kitesdk.data.RecordMapping;
 import org.kitesdk.data.DatasetIOException;
-import org.kitesdk.data.FieldMapping;
 import org.kitesdk.data.ValidationException;
 
 /**
- * Parser for {@link ColumnMapping}. Will parse the mapping annotation from
- * Avro schemas, and will parse the ColumnMapping JSON format. An
+ * Parser for {@link org.kitesdk.data.RecordMapping}. Will parse the mapping annotation from
+ * Avro schemas, and will parse the RecordMapping JSON format. An
  * example of that is:
  *
  * <pre>
@@ -47,7 +46,7 @@ import org.kitesdk.data.ValidationException;
  * </pre>
  *
  */
-public class ColumnMappingParser {
+public class RecordMappingParser {
 
   // name of the json node when embedded in a schema
   private static final String MAPPING = "mapping";
@@ -67,13 +66,13 @@ public class ColumnMappingParser {
    * 
    * @param mappingDescriptor
    *          The mapping descriptor as a JSON string
-   * @return ColumnMapping
+   * @return RecordMapping
    */
-  public ColumnMapping parse(String mappingDescriptor) {
+  public RecordMapping parse(String mappingDescriptor) {
     ObjectMapper mapper = new ObjectMapper();
     try {
       JsonNode node = mapper.readValue(mappingDescriptor, JsonNode.class);
-      return buildColumnMapping(node);
+      return buildRecordMapping(node);
     } catch (JsonParseException e) {
       throw new ValidationException("Invalid JSON", e);
     } catch (JsonMappingException e) {
@@ -88,13 +87,13 @@ public class ColumnMappingParser {
    *
    * @param file
    *          The File that contains the Mapping Descriptor in JSON format.
-   * @return ColumnMapping.
+   * @return RecordMapping.
    */
-  public ColumnMapping parse(File file) {
+  public RecordMapping parse(File file) {
     ObjectMapper mapper = new ObjectMapper();
     try {
       JsonNode node = mapper.readValue(file, JsonNode.class);
-      return buildColumnMapping(node);
+      return buildRecordMapping(node);
     } catch (JsonParseException e) {
       throw new ValidationException("Invalid JSON", e);
     } catch (JsonMappingException e) {
@@ -110,13 +109,13 @@ public class ColumnMappingParser {
    * @param in
    *          The input stream that contains the Mapping Descriptor in JSON
    *          format.
-   * @return ColumnMapping.
+   * @return RecordMapping.
    */
-  public ColumnMapping parse(InputStream in) {
+  public RecordMapping parse(InputStream in) {
     ObjectMapper mapper = new ObjectMapper();
     try {
       JsonNode node = mapper.readValue(in, JsonNode.class);
-      return buildColumnMapping(node);
+      return buildRecordMapping(node);
     } catch (JsonParseException e) {
       throw new ValidationException("Invalid JSON", e);
     } catch (JsonMappingException e) {
@@ -130,7 +129,7 @@ public class ColumnMappingParser {
     return schema.getJsonProp(MAPPING) != null;
   }
 
-  public ColumnMapping parseFromSchema(Schema schema) {
+  public RecordMapping parseFromSchema(Schema schema) {
     // parse the String because Avro uses com.codehaus.jackson
     return parse(schema.getJsonProp(MAPPING).toString());
   }
@@ -146,10 +145,10 @@ public class ColumnMappingParser {
     return false;
   }
 
-  public ColumnMapping parseFromSchemaFields(Schema schema) {
+  public RecordMapping parseFromSchemaFields(Schema schema) {
     if (Schema.Type.RECORD == schema.getType()) {
       ObjectMapper mapper = new ObjectMapper();
-      ColumnMapping.Builder builder = new ColumnMapping.Builder();
+      BigTableMapping.Builder builder = new BigTableMapping.Builder();
       for (Schema.Field field : schema.getFields()) {
         if (field.getJsonProp(MAPPING) != null) {
           try {
@@ -275,18 +274,18 @@ public class ColumnMappingParser {
     }
   }
 
-  private ColumnMapping buildColumnMapping(JsonNode node) {
+  private RecordMapping buildRecordMapping(JsonNode node) {
     ValidationException.check(node.isArray(),
         "Must be a JSON array of column mappings");
 
-    ColumnMapping.Builder builder = new ColumnMapping.Builder();
+    BigTableMapping.Builder builder = new BigTableMapping.Builder();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext();) {
       builder.fieldMapping(parseFieldMapping(it.next()));
     }
     return builder.build();
   }
 
-  public static String toString(ColumnMapping mappings, boolean pretty) {
+  public static String toString(BigTableMapping mappings, boolean pretty) {
     StringWriter writer = new StringWriter();
     JsonGenerator gen;
     try {

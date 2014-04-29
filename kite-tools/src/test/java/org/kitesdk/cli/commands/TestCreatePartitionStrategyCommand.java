@@ -19,6 +19,7 @@ package org.kitesdk.cli.commands;
 import com.beust.jcommander.internal.Lists;
 import java.util.concurrent.Callable;
 import org.apache.hadoop.conf.Configuration;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.kitesdk.data.PartitionStrategy;
@@ -112,5 +113,35 @@ public class TestCreatePartitionStrategyCommand {
             return null;
           }
         });
+  }
+
+  private long encodeDouble(double d) {
+    long j = Double.doubleToLongBits(d);
+    j ^= (j >> 63) | Double.doubleToLongBits(Double.MIN_VALUE);
+    return j;
+  }
+
+  @Test
+  public void testEncoding() {
+    long posInf = encodeDouble(Double.POSITIVE_INFINITY);
+    long negInf = encodeDouble(Double.NEGATIVE_INFINITY);
+    long nan = encodeDouble(Double.NaN);
+
+    long one = encodeDouble(-341234.12);
+    long zero = (encodeDouble(0.0) | Double.doubleToLongBits(Double.MIN_VALUE));
+    long two = encodeDouble(5128.10239871);
+
+    Assert.assertTrue("+inf > -inf", posInf > negInf);
+    Assert.assertTrue("+inf > one", posInf > one);
+    Assert.assertTrue("+inf > two", posInf > two);
+    Assert.assertTrue("two > one", two > one);
+    Assert.assertTrue("two > 0.0", two > zero);
+    Assert.assertTrue("0.0 > one", zero > one);
+    Assert.assertTrue("one > -inf", one > negInf);
+    Assert.assertTrue("two > -inf", two > negInf);
+    Assert.assertTrue("nan > +inf", nan > posInf);
+    Assert.assertTrue("+inf > dmax", posInf > encodeDouble(Double.MAX_VALUE));
+    Assert.assertTrue("nan > dmax", nan > encodeDouble(Double.MAX_VALUE));
+    //Assert.assertTrue("dmin > -inf", encodeDouble(Double.MIN_VALUE) > negInf);
   }
 }

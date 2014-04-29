@@ -146,7 +146,7 @@ public class TestDatasetDescriptor {
     Assert.assertTrue("Descriptor should have partition strategy",
         descriptor.isPartitioned());
 
-    ColumnMapping expected = new ColumnMapping.Builder()
+    RecordMapping expected = new RecordMapping.Builder()
         .key("id")
         .column("username", "u", "username")
         .column("real_name", "u", "name")
@@ -181,7 +181,7 @@ public class TestDatasetDescriptor {
     Assert.assertTrue("Descriptor should have partition strategy",
         descriptor.isPartitioned());
 
-    ColumnMapping expected = new ColumnMapping.Builder()
+    RecordMapping expected = new RecordMapping.Builder()
         .key("id")
         .column("username", "u", "username")
         .column("real_name", "u", "name")
@@ -210,7 +210,7 @@ public class TestDatasetDescriptor {
   public void testMappingSourceMustBeSchemaField() {
     Assert.assertNotNull(new DatasetDescriptor.Builder()
         .schema(USER_SCHEMA)
-        .columnMapping(new ColumnMapping.Builder()
+        .recordMapping(new RecordMapping.Builder()
             .column("id", "meta", "id")
             .build())
         .build());
@@ -221,7 +221,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .column("created_at", "meta", "created_at")
                     .build())
                 .build();
@@ -238,7 +238,7 @@ public class TestDatasetDescriptor {
             .hash("id", 16)
             .identity("id", "id_copy", Long.class, -1)
             .build())
-        .columnMapping(new ColumnMapping.Builder()
+        .recordMapping(new RecordMapping.Builder()
             .key("id")
             .build())
         .build());
@@ -252,7 +252,7 @@ public class TestDatasetDescriptor {
                 .partitionStrategy(new PartitionStrategy.Builder()
                     .hash("id", 16)
                     .build())
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .key("id")
                     .build())
                 .build();
@@ -266,7 +266,7 @@ public class TestDatasetDescriptor {
     // works for a long field
     Assert.assertNotNull(new DatasetDescriptor.Builder()
         .schema(USER_SCHEMA)
-        .columnMapping(new ColumnMapping.Builder()
+        .recordMapping(new RecordMapping.Builder()
             .counter("visit_count", "meta", "visits")
             .build())
         .build());
@@ -277,7 +277,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .counter("email", "meta", "email")
                     .build())
                 .build();
@@ -289,7 +289,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .counter("custom_attributes", "meta", "attrs")
                     .build())
                 .build();
@@ -301,7 +301,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .counter("preferences", "meta", "prefs")
                     .build())
                 .build();
@@ -313,7 +313,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .counter("posts", "meta", "post_ids")
                     .build())
                 .build();
@@ -327,7 +327,7 @@ public class TestDatasetDescriptor {
     // works for a long field
     Assert.assertNotNull(new DatasetDescriptor.Builder()
         .schema(USER_SCHEMA)
-        .columnMapping(new ColumnMapping.Builder()
+        .recordMapping(new RecordMapping.Builder()
             .version("version")
             .build())
         .build());
@@ -338,7 +338,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .version("name")
                     .build())
                 .build();
@@ -350,7 +350,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .version("custom_attributes")
                     .build())
                 .build();
@@ -362,7 +362,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .version("preferences")
                     .build())
                 .build();
@@ -374,7 +374,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .version("posts")
                     .build())
                 .build();
@@ -387,14 +387,14 @@ public class TestDatasetDescriptor {
     // works for a map field
     Assert.assertNotNull(new DatasetDescriptor.Builder()
         .schema(USER_SCHEMA)
-        .columnMapping(new ColumnMapping.Builder()
+        .recordMapping(new RecordMapping.Builder()
             .keyAsColumn("custom_attributes", "attrs")
             .build())
         .build());
     // works for a record field
     Assert.assertNotNull(new DatasetDescriptor.Builder()
         .schema(USER_SCHEMA)
-        .columnMapping(new ColumnMapping.Builder()
+        .recordMapping(new RecordMapping.Builder()
             .keyAsColumn("preferences", "prefs")
             .build())
         .build());
@@ -405,7 +405,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .keyAsColumn("id", "kac")
                     .build())
                 .build();
@@ -417,7 +417,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .keyAsColumn("email", "kac")
                     .build())
                 .build();
@@ -429,7 +429,7 @@ public class TestDatasetDescriptor {
           public void run() {
             new DatasetDescriptor.Builder()
                 .schema(USER_SCHEMA)
-                .columnMapping(new ColumnMapping.Builder()
+                .recordMapping(new RecordMapping.Builder()
                     .keyAsColumn("posts", "kac")
                     .build())
                 .build();
