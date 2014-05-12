@@ -24,7 +24,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 
 public class DynMethods {
@@ -225,6 +224,8 @@ public class DynMethods {
       try {
         Class<?> targetClass = Class.forName(className);
         impl(targetClass, methodName, argClasses);
+      } catch (NoClassDefFoundError e) {
+        // cannot load this implementation
       } catch (ClassNotFoundException e) {
         // not the right implementation
       }
@@ -337,6 +338,8 @@ public class DynMethods {
       try {
         Class<?> targetClass = Class.forName(className);
         hiddenImpl(targetClass, methodName, argClasses);
+      } catch (NoClassDefFoundError e) {
+        // cannot load this implementation
       } catch (ClassNotFoundException e) {
         // not the right implementation
       }
