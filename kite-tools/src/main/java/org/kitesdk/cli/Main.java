@@ -38,6 +38,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.kitesdk.cli.commands.ObjectSchemaCommand;
+import org.kitesdk.cli.commands.RunScriptCommand;
 import org.kitesdk.cli.commands.SchemaCommand;
 import org.kitesdk.cli.commands.ShowRecordsCommand;
 import org.kitesdk.cli.commands.UpdateDatasetCommand;
@@ -82,6 +83,7 @@ public class Main extends Configured implements Tool {
     jc.addCommand("obj-schema", new ObjectSchemaCommand(console));
     jc.addCommand("partition-config", new CreatePartitionStrategyCommand(console));
     jc.addCommand("mapping-config", new CreateColumnMappingCommand(console));
+    jc.addCommand("run-script", new RunScriptCommand(console));
   }
 
   @Override
