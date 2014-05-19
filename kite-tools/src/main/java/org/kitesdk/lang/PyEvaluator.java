@@ -32,9 +32,7 @@
 package org.kitesdk.lang;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.Lists;
 import java.nio.CharBuffer;
-import java.util.List;
 import javax.script.Bindings;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -47,22 +45,20 @@ import org.python.core.Py;
 import org.python.core.PyObject;
 import org.python.core.PySystemState;
 
-public class PyEvaluator implements Script.Evaluator {
+public class PyEvaluator implements Evaluator {
   static {
     // ensure Python is loaded along with this Evaluator
     PySystemState.class.isPrimitive();
   }
 
   @Override
-  public Analytic eval(Script script) throws ScriptException {
+  public void eval(Script script) throws ScriptException {
     CharBuffer cb = Charsets.UTF_8.decode(script.toByteBuffer());
 
     // a hack for python to pass the analytic back
-    List<Analytic> analytics = Lists.newArrayListWithCapacity(1);
     PySystemState engineSys = new PySystemState();
     PyObject builtins = engineSys.getBuiltins();
     builtins.__setitem__("_script", Py.java2py(script));
-    builtins.__setitem__("_analytics", Py.java2py(analytics));
     Py.setSystemState(engineSys);
 
     // use ruby custom avro data
@@ -71,12 +67,6 @@ public class PyEvaluator implements Script.Evaluator {
     ScriptEngine engine = new ScriptEngineManager().getEngineByName("python");
     Bindings bindings = new SimpleBindings();
     engine.eval(new CharSequenceReader(cb), bindings);
-
-    if (analytics.isEmpty()) {
-      throw new ScriptException("Script did not define an analytic");
-    }
-
-    return analytics.get(0);
   }
 
   @Override

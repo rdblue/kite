@@ -20,46 +20,27 @@ lib_path = Pathname.new(__FILE__).expand_path.parent
 $LOAD_PATH << lib_path.to_s unless $LOAD_PATH.include? lib_path.to_s
 
 module Crunch
-  java_import 'org.apache.crunch.PCollection'
-  java_import 'org.apache.crunch.PTable'
-  java_import 'org.apache.crunch.PGroupedTable'
   java_import 'org.apache.crunch.types.avro.Avros'
 end
 
 module Kite
-  module Carriers
-    java_import 'org.kitesdk.lang.carriers.FromCollection'
-    java_import 'org.kitesdk.lang.carriers.FromTable'
-    java_import 'org.kitesdk.lang.carriers.FromGroupedTable'
-    java_import 'org.kitesdk.lang.carriers.Combiner'
-    java_import 'org.kitesdk.lang.utils.ToTableShim'
-  end
-
-  module Misc
-    java_import 'org.kitesdk.lang.Analytic'
-  end
-
+  java_import 'org.kitesdk.lang.Stage'
+  java_import 'org.kitesdk.lang.Script'
   java_import 'org.kitesdk.lang.generics.CustomData'
 
+  STAGE_TYPES = {
+    :parallel => Script::StageType::PARALLEL,
+    :combine => Script::StageType::COMBINE,
+    :reduce => Script::StageType::REDUCE
+  }
+
   GENERIC_TYPE = Crunch::Avros.generics(CustomData::GENERIC_SCHEMA);
-  COLLECTION_TYPE = GENERIC_TYPE
-  TABLE_TYPE = Crunch::Avros.table_of(GENERIC_TYPE, GENERIC_TYPE)
 
   class Analytic
-    # implement the Analytic interface so individual stages can be retrieved
-    include Misc::Analytic
-
-    attr_reader :pipeline
-
     # for now, source and sink should be String filenames because the
     # implementation is using read_text_file and write_text_file
     def initialize( name, options={}, &block )
       @name = name
-      @pipeline = $SCRIPT.get_pipeline
-
-      @collections_by_name = {}
-      @stages_by_name = {}
-
       instance_exec( &block ) if block_given?
     end
 
@@ -70,6 +51,7 @@ module Kite
       return add_stage( :parallel, name, &block )
     end
     alias_method :map, :parallel
+    alias_method :extract, :parallel
 
     def reduce( name, options={}, &block )
       return add_stage( :reduce, name, &block )
@@ -81,101 +63,52 @@ module Kite
     end
 
     def read( source )
-      @last_collection = @pipeline.read_text_file( source )
-      @collections_by_name[ source ] = @last_collection
-      return @last_collection
+      script.read( source )
     end
 
     def write( sink )
-      @pipeline.write_text_file( @last_collection, sink )
+      script.write( sink )
       nil
     end
 
-    def verbose!
-      @pipeline.enable_debug
+    def group!
+      script.group
     end
 
-    def getStage( name )
-      return @stages_by_name[ name ]
+    def verbose!
+      script.enable_debug
     end
-    alias_method :stage, :getStage
+
+    def get_stage( name )
+      return script.get_stage( name )
+    end
+    alias_method :stage, :get_stage
 
     private
+
+    def script
+      $SCRIPT
+    end
 
     def add_stage( stage, name, &block )
       raise RuntimeError, 'A block is required' unless block_given?
 
-      infected = infect( name, carrier_for( stage, block ), &block )
+      stage_enum = STAGE_TYPES[stage]
 
-      case stage
-      when :reduce
-        group!
-        @last_collection = @last_collection.parallel_do( name, infected, COLLECTION_TYPE )
-      when :combine
-        group!
-        @last_collection = @last_collection.combine_values( infected )
+      if block.arity == 2
+        stage_base = Stage::Arity2
       else
-        @last_collection = @last_collection.parallel_do( name, infected, COLLECTION_TYPE )
+        stage_base = Stage::Arity1
       end
 
-      @collections_by_name[ name ] = @last_collection
-      @stages_by_name[ name ] = infected
-
-      return @last_collection
-    end
-
-    def infect( name, carrier_class, &block )
-      $stderr.puts "Instantiating #{carrier_class} for #{name}"
-
-      inst_class = Class.new( carrier_class ) do
-        define_method( :work, &block )
+      # TODO: add before/after blocks here
+      stage_class = Class.new( stage_base ) do
+        define_method( :call, &block )
       end
 
-      # it is possible to name the class by assigning it to a constant here
+      # it is possible to name the stage class by assigning it to a constant here
 
-      return inst_class.new( name, $SCRIPT )
-    end
-
-    def group!
-      case @last_collection
-      when Crunch::PGroupedTable
-        # do nothing
-      when Crunch::PTable
-        # already a table, just need to group
-        @last_collection = @last_collection.group_by_key # TODO: add options
-      when Crunch::PCollection
-        # need to get a PTable then group
-        @last_collection = @last_collection.parallel_do( Carriers::ToTableShim.new, TABLE_TYPE )
-        @last_collection = @last_collection.group_by_key # TODO: add options
-      else
-        throw RuntimeError.new('Last collection is invalid')
-      end
-    end
-
-    def carrier_for( stage, block )
-      case stage
-      when :combine
-        return Carriers::Combiner
-      when :reduce
-        return Carriers::FromGroupedTable
-      end
-
-      case @last_collection
-      when Crunch::PGroupedTable
-        return Carriers::FromGroupedTable
-      when Crunch::PTable
-        return Carriers::FromTable
-      when Crunch::PCollection
-        # the arity gives us an idea of whether the last was written as a table
-        # or as a collection
-        if block.arity == 2
-          return Carriers::FromTable
-        else
-          return Carriers::FromCollection
-        end
-      end
-
-      throw RuntimeError.new('Last collection is invalid')
+      script.add_stage( name, stage_enum, stage_class.new, GENERIC_TYPE )
     end
 
     # where do before/after blocks go?

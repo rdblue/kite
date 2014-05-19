@@ -16,17 +16,20 @@
 
 package org.kitesdk.lang.carriers;
 
+import org.apache.crunch.Emitter;
 import org.kitesdk.lang.Script;
+import org.kitesdk.lang.Stage;
 
-public abstract class FromCollection<S, T> extends Carrier<S, T> {
-  protected FromCollection(String name, Script script) {
-    super(name, script);
+@edu.umd.cs.findbugs.annotations.SuppressWarnings(
+    value="SE_NO_SERIALVERSIONID",
+    justification="Purposely not compatible with other versions")
+public class FromCollection<S, T> extends Carrier<S, T> {
+  public FromCollection(String name, Script script, Stage<S, T> stage) {
+    super(name, script, stage);
   }
 
   @Override
-  public final void process(S input) {
-    work(input);
+  public void process(S input, Emitter<T> emitter) {
+    stage.processSingle(input, emitter);
   }
-
-  public abstract void work(S input);
 }

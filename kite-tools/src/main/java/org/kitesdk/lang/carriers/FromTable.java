@@ -16,22 +16,21 @@
 
 package org.kitesdk.lang.carriers;
 
+import org.apache.crunch.Emitter;
 import org.apache.crunch.Pair;
 import org.kitesdk.lang.Script;
+import org.kitesdk.lang.Stage;
 
-public abstract class FromTable<KI, VI, T> extends Carrier<Pair<KI, VI>, T> {
-  protected FromTable(String name, Script script) {
-    super(name, script);
+@edu.umd.cs.findbugs.annotations.SuppressWarnings(
+    value="SE_NO_SERIALVERSIONID",
+    justification="Purposely not compatible with other versions")
+public class FromTable<KI, VI, T> extends Carrier<Pair<KI, VI>, T> {
+  public FromTable(String name, Script script, Stage<Pair<KI, VI>, T> stage) {
+    super(name, script, stage);
   }
 
   @Override
-  public final void process(Pair<KI, VI> input) {
-    work(input.first(), wrap(input.second()));
+  public void process(Pair<KI, VI> input, Emitter<T> emitter) {
+    stage.processPair(input, emitter);
   }
-
-  public VI wrap(VI value) {
-    return value;
-  }
-
-  public abstract void work(KI key, VI value);
 }

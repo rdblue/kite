@@ -16,65 +16,52 @@
 
 package org.kitesdk.lang.carriers;
 
-import com.google.common.base.Preconditions;
 import java.io.ObjectStreamException;
 import org.apache.crunch.CombineFn;
 import org.apache.crunch.Emitter;
 import org.apache.crunch.Pair;
+import org.apache.hadoop.mapreduce.TaskInputOutputContext;
+import org.kitesdk.lang.Stage;
 import org.kitesdk.lang.Script;
-import org.kitesdk.lang.StandIn;
 
-public abstract class Combiner<K, V> extends CombineFn<K, V> {
+@edu.umd.cs.findbugs.annotations.SuppressWarnings(
+    value="SE_NO_SERIALVERSIONID",
+    justification="Purposely not compatible with other versions")
+public class Combiner<K, V> extends CombineFn<K, V> {
+
   private final String name;
   private final Script script;
+  private transient Stage<Pair<K, Iterable<V>>, Pair<K, V>> stage = null;
 
-  private transient Emitter<Pair<K, V>> emitter;
-
-  protected Combiner(String name, Script script) {
+  public Combiner(String name, Script script,
+                    Stage<Pair<K, Iterable<V>>, Pair<K, V>> stage) {
     this.name = name;
     this.script = script;
+    this.stage = stage;
   }
 
   @Override
-  public final void process(Pair<K, Iterable<V>> input, Emitter<Pair<K, V>> emitter) {
-    this.emitter = emitter;
-    work(input.first(), wrap(input.second()));
+  public void setContext(TaskInputOutputContext<?, ?, ?, ?> context) {
+    super.setContext(context);
+    stage.setContext(context);
   }
 
-  public void emit(K key, V value) {
-    Preconditions.checkArgument(emitter != null,
-        "Cannot call emit outside of processing");
-    emitter.emit(Pair.of(key, value));
+  @Override
+  public void initialize() {
+    super.initialize();
+    stage.initialize();
   }
 
-  @SuppressWarnings("unchecked")
-  public void emit(Object value) {
-    Preconditions.checkArgument(emitter != null,
-        "Cannot call emit outside of processing");
-    emitter.emit((Pair<K, V>) value);
+  @Override
+  public void cleanup(Emitter<Pair<K, V>> emitter) {
+    stage.cleanup(emitter);
+    super.cleanup(emitter);
   }
 
-  public Iterable<V> wrap(Iterable<V> iterable) {
-    // TODO: wrap the iterable in something more friendly
-    return iterable;
+  @Override
+  public void process(Pair<K, Iterable<V>> input, Emitter<Pair<K, V>> emitter) {
+    stage.processPair(input, emitter);
   }
-
-  public final void increment(Object counter) {
-    increment(counter, 1);
-  }
-  public final void increment(Object counter, long amount) {
-    increment(script.getName(), counter.toString(), amount);
-  }
-
-  public final void increment(Object group, Object counter) {
-    increment(group, counter, 1);
-  }
-
-  public final void increment(Object group, Object counter, long amount) {
-    increment(group.toString(), counter.toString(), amount);
-  }
-
-  public abstract void work(K key, Iterable<V> values);
 
   protected Object writeReplace() throws ObjectStreamException {
     return new StandIn(name, script);

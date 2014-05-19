@@ -23,45 +23,30 @@ import org.apache.crunch.PCollection;
 import org.apache.crunch.Pair;
 import org.apache.crunch.types.PTableType;
 import org.apache.crunch.types.PType;
-import org.apache.crunch.types.avro.Avros;
 
-/**
- * Translates from a PCollection to a PTable.
- *
- * If the PCollection contained Pairs, then the resulting table is made from
- * those Pairs. Otherwise, the table is created with Pairs containing each
- * object from the PCollection as a key and null values.
- *
- * @param <I>
- */
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(
     value="SE_NO_SERIALVERSIONID",
     justification="Purposely not compatible with other versions")
-public class ToTableShim<I> extends DoFn<I, Pair<I, I>> {
+public class ToKeyValueTable<K, V> extends DoFn<Pair<K, V>, Pair<K, V>> {
 
-  private final PTableType<I, I> outType;
+  private final PTableType<K, V> outType;
 
-  public ToTableShim(PCollection<I> collection) {
-    PType<I> inType = collection.getPType();
-    Preconditions.checkArgument(!(inType instanceof Pair),
-        "ToTableShim is not needed, use PTables.asPTable(collection)");
-    this.outType = inType.getFamily().tableOf(inType, inType);
+  @SuppressWarnings("unchecked")
+  public ToKeyValueTable(PCollection<Pair<K, V>> collection) {
+    PType<Pair<K, V>> inType = collection.getPType();
+    Preconditions.checkArgument(inType instanceof Pair, "ToTableShim is needed");
+    PType<K> keyType = (PType<K>) inType.getSubTypes().get(0);
+    PType<V> valueType = (PType<V>) inType.getSubTypes().get(1);
+    this.outType = inType.getFamily().tableOf(keyType, valueType);
   }
 
-  public PTableType<I, I> getTableType() {
+  public PTableType<K, V> getTableType() {
     return outType;
   }
 
   @Override
-  @SuppressWarnings("unchecked")
-  public void process(I input, Emitter<Pair<I, I>> emitter) {
-    if (input instanceof Pair) {
-      emitter.emit(Pair.of(
-          ((Pair<I, I>) input).first(),
-          ((Pair<I, I>) input).second()));
-    } else {
-      emitter.emit(Pair.of(input, (I) null));
-    }
+  public void process(Pair<K, V> input, Emitter<Pair<K, V>> emitter) {
+    emitter.emit(input);
   }
 
 }

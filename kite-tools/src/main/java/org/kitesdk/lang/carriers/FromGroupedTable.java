@@ -16,19 +16,18 @@
 
 package org.kitesdk.lang.carriers;
 
+import org.apache.crunch.Pair;
 import org.kitesdk.lang.Script;
+import org.kitesdk.lang.Stage;
 
-public abstract class FromGroupedTable<KI, VI, T> extends FromTable<KI, Iterable<VI>, T> {
-
-  protected FromGroupedTable(String name, Script script) {
-    super(name, script);
+@edu.umd.cs.findbugs.annotations.SuppressWarnings(
+    value="SE_NO_SERIALVERSIONID",
+    justification="Purposely not compatible with other versions")
+public class FromGroupedTable<KI, VI, T> extends FromTable<KI, Iterable<VI>, T> {
+  public FromGroupedTable(String name, Script script,
+                             Stage<Pair<KI, Iterable<VI>>, T> stage) {
+    super(name, script, stage);
   }
 
-  @Override
-  public Iterable<VI> wrap(Iterable<VI> value) {
-    // TODO: wrap the iterable in something more friendly
-    return value;
-  }
-
-  public abstract void work(KI key, Iterable<VI> value);
+  // TODO: Add Iterable wrapper here and in Combiner
 }

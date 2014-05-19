@@ -16,62 +16,44 @@
 
 package org.kitesdk.lang.carriers;
 
-import com.google.common.base.Preconditions;
 import java.io.ObjectStreamException;
 import org.apache.crunch.DoFn;
 import org.apache.crunch.Emitter;
-import org.apache.crunch.Pair;
+import org.apache.hadoop.mapreduce.TaskInputOutputContext;
 import org.kitesdk.lang.Script;
-import org.kitesdk.lang.StandIn;
+import org.kitesdk.lang.Stage;
 
 public abstract class Carrier<S, T> extends DoFn<S, T> {
 
   private final String name;
   private final Script script;
+  protected transient final Stage<S, T> stage;
 
-  private transient Emitter<T> emitter;
-
-  protected Carrier(String name, Script script) {
+  public Carrier(String name, Script script, Stage<S, T> stage) {
     this.name = name;
     this.script = script;
+    this.stage = stage;
   }
 
   @Override
-  public final void process(S input, Emitter<T> emitter) {
-    this.emitter = emitter;
-    process(input);
+  public void setContext(TaskInputOutputContext<?, ?, ?, ?> context) {
+    super.setContext(context);
+    stage.setContext(context);
   }
 
-  @SuppressWarnings("unchecked")
-  public final void emit(Object key, Object value) {
-    Preconditions.checkState(emitter != null,
-        "Cannot call emit outside of processing");
-    emit((T) Pair.of(key, value));
+  @Override
+  public void initialize() {
+    super.initialize();
+    stage.initialize();
   }
 
-  public final void emit(T output) {
-    Preconditions.checkState(emitter != null,
-        "Cannot call emit outside of processing");
-    emitter.emit(output);
+  @Override
+  public void cleanup(Emitter<T> emitter) {
+    stage.cleanup(emitter);
+    super.cleanup(emitter);
   }
 
-  public final void increment(Object counter) {
-    increment(counter, 1);
-  }
-
-  public final void increment(Object counter, long amount) {
-    increment(script.getName(), counter.toString(), amount);
-  }
-
-  public final void increment(Object group, Object counter) {
-    increment(group, counter, 1);
-  }
-
-  public final void increment(Object group, Object counter, long amount) {
-    increment(group.toString(), counter.toString(), amount);
-  }
-
-  public abstract void process(S input);
+  public abstract void process(S input, Emitter<T> emitter);
 
   protected Object writeReplace() throws ObjectStreamException {
     return new StandIn(name, script);

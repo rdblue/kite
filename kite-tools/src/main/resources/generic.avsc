@@ -1,19 +1,26 @@
-{
+[ {
   "type" : "record",
   "name" : "Container",
-  "namespace" : "crash",
+  "namespace" : "org.kitesdk.lang.generic",
   "fields" : [ {
     "name" : "object",
-    "type" : [
-      "null", "boolean", "int", "long",
-      "float", "double", "bytes", "string",
-      {
-        "type" : "map",
-        "values" : "Container"
-      }, {
-        "type" : "array",
-        "items" : "Container"
-      }
-    ]
+    "type" : [ "null", "boolean", "int", "long", "float", "double", "bytes", "string", {
+      "type" : "map",
+      "values" : "Container"
+    }, {
+      "type" : "array",
+      "items" : "Container"
+    } ]
   } ]
-}
+}, {
+  "type" : "record",
+  "name" : "Pair",
+  "namespace" : "org.kitesdk.lang.generic",
+  "fields" : [ {
+    "name" : "first",
+    "type" : "Container"
+  }, {
+    "name" : "second",
+    "type" : "Container"
+  } ]
+} ]

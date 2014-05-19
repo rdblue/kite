@@ -129,6 +129,7 @@
                   <include>org.javassist:javassist</include>
                   <include>com.google.code.findbugs:jsr305</include>
                   <include>com.google.code.findbugs:annotations</include>
+                  <include>org.apache.avro:avro-mapred</include>
                 </includes>
                 <!-- <excludes>
                   <exclude>*:*</exclude>
@@ -297,6 +298,13 @@
     </dependency>
 
     <!-- Bundled dependencies -->
+
+    <dependency>
+      <groupId>org.apache.avro</groupId>
+      <artifactId>avro-mapred</artifactId>
+      <classifier>hadoop2</classifier>
+      <version>${vers.avro}</version>
+    </dependency>
 
     <dependency>
       <!-- not usually provided -->

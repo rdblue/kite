@@ -75,17 +75,15 @@ public class RunScriptCommand extends BaseCommand {
     }
 
     String scriptName = scripts.get(0);
-    Script script = new Script(scriptName, open(scriptName));
     console.info("Running script...");
 
+    Script script = Script.get(scriptName, open(scriptName));
     script.setPipeline(mem ? MemPipeline.getInstance():
         new MRPipeline(Script.class, script.getName()));
 
-    try {
-      script.ensureEval();
-    } catch (Exception e) {
-      console.error("Error while evaluating script", e);
-    }
+    script.setConf(getConf());
+
+    script.ensureEval();
 
     try {
       return script.run().succeeded() ? 0 : 1;

@@ -14,26 +14,29 @@
  * limitations under the License.
  */
 
-package org.kitesdk.lang;
+package org.kitesdk.lang.carriers;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import org.kitesdk.lang.Script;
 
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(
     value="SE_NO_SERIALVERSIONID",
     justification="Purposely not compatible with other versions")
-public class StandIn implements Serializable {
+class StandIn implements Serializable {
   private String name;
   private Script script;
 
   public StandIn(String name, Script script) {
     this.name = name;
     this.script = script;
-    System.err.println("Using StandIn to serialize \"" + name + "\" in " + script);
+    System.err.println(
+        "Using carrier StandIn to serialize \"" + name + "\" in " + script);
   }
 
   private Object readResolve() throws ObjectStreamException {
-    System.err.println("Resovling StandIn \"" + name + "\" in " + script);
-    return script.getStage(name);
+    System.err.println(
+        "Resolving carrier StandIn \"" + name + "\" in " + script);
+    return script.getDoFn(name);
   }
 }

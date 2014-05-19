@@ -16,8 +16,12 @@
 
 package org.kitesdk.lang;
 
-import org.apache.crunch.DoFn;
+import javax.script.ScriptException;
 
-public interface Analytic {
-  <S, T> DoFn<S, T> getStage(String name);
+public interface Evaluator {
+
+  public void eval(Script script) throws ScriptException;
+
+  public String ext();
+
 }

@@ -19,8 +19,6 @@ from kite import *
 
 ws = re.compile(r'\s+')
 
-analytic('Word Count')
-
 @map("../LICENSE.txt")
 def each_line( context, line ):
     for word in ws.split( line ):

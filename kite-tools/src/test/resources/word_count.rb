@@ -15,6 +15,8 @@
 #
 require 'kite'
 
+$stderr.puts "Word count!"
+
 analytic 'Word count' do
 
   map 'map phase', :from => '../LICENSE.txt' do |line|
@@ -27,6 +29,7 @@ analytic 'Word count' do
   end
 
   combine 'combine phase' do |word, counts|
+    puts word.inspect
     total = 0
     counts.each do |count|
       total += count

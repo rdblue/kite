@@ -28,14 +28,14 @@ import org.apache.crunch.types.avro.AvroMode;
 import org.jruby.Ruby;
 import org.kitesdk.lang.generics.ruby.RubyReaderWriterFactory;
 
-public class RubyEvaluator implements Script.Evaluator {
+public class RubyEvaluator implements Evaluator {
   static {
     // ensure Ruby is loaded along with this Evaluator
     Ruby.class.isPrimitive();
   }
 
   @Override
-  public Analytic eval(Script script) throws ScriptException {
+  public void eval(Script script) throws ScriptException {
     CharBuffer cb = Charsets.UTF_8.decode(script.toByteBuffer());
 
     // use the same runtime and variable map for all ScriptingContainers
@@ -52,11 +52,7 @@ public class RubyEvaluator implements Script.Evaluator {
     ScriptEngine engine = new ScriptEngineManager().getEngineByName("jruby");
     Bindings bindings = new SimpleBindings();
     bindings.put("$SCRIPT", script);
-    Object returned = engine.eval(new CharSequenceReader(cb), bindings);
-    if (returned instanceof Analytic) {
-      return (Analytic) returned;
-    }
-    throw new ScriptException("Script did not define an analytic");
+    engine.eval(new CharSequenceReader(cb), bindings);
   }
 
   @Override
