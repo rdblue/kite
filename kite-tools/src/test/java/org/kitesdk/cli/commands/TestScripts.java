@@ -51,6 +51,12 @@ public class TestScripts {
     command.run();
   }
 
+  @Test
+  public void testPyWordCountUnique() throws IOException {
+    command.scripts = Lists.newArrayList("unique_word_count.py");
+    command.run();
+  }
+
   @After
   public void removeOutput() {
     File output = new File("target/output.text");

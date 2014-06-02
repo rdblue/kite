@@ -31,12 +31,11 @@ import java.io.InputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
-import java.util.Locale;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import javax.script.ScriptException;
-import org.apache.crunch.CombineFn;
 import org.apache.crunch.DoFn;
 import org.apache.crunch.PCollection;
 import org.apache.crunch.PGroupedTable;
@@ -46,14 +45,14 @@ import org.apache.crunch.PipelineResult;
 import org.apache.crunch.Source;
 import org.apache.crunch.Target;
 import org.apache.crunch.impl.mr.MRPipeline;
-import org.apache.crunch.types.PType;
+import org.apache.crunch.types.PTableType;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
-import org.kitesdk.lang.carriers.Combiner;
-import org.kitesdk.lang.carriers.FromCollection;
-import org.kitesdk.lang.carriers.FromGroupedTable;
-import org.kitesdk.lang.carriers.FromTable;
-import org.kitesdk.lang.utils.ToTableShim;
+import org.kitesdk.lang.stages.Stage;
+import org.kitesdk.lang.stages.Combiner;
+import org.kitesdk.lang.stages.FromCollection;
+import org.kitesdk.lang.stages.FromGroupedTable;
+import org.kitesdk.lang.stages.FromTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,10 +94,6 @@ public class Script implements Serializable, Configurable {
   }
 
   public enum StageType {
-    PARALLEL, COMBINE, REDUCE
-  }
-
-  public enum CarrierType {
     COMBINER, FROM_TABLE, FROM_GROUPED_TABLE, FROM_COLLECTION
   }
 
@@ -108,9 +103,10 @@ public class Script implements Serializable, Configurable {
   private transient boolean evaled = false;
   private transient Pipeline pipeline = null;
   private transient PCollection<?> lastCollection = null;
-  private transient Map<String, Stage> stagesByName = null;
-  private transient Map<String, DoFn> fnsByName = null;
-  private transient Map<String, PCollection> collectionsByName = null;
+  private transient Stage lastStage = null;
+  private transient LinkedHashMap<String, Carrier> carriersByName = null;
+  private transient Map<String, DoFn> stagesByName = null;
+  private transient Map<String, StageResult> resultsByName = null;
 
   private Script(String name, byte[] bytes) {
     this.name = name;
@@ -135,14 +131,17 @@ public class Script implements Serializable, Configurable {
   }
 
   public void write(Target target) {
+    addLastStage();
     getPipeline().write(lastCollection, target);
   }
 
   public void write(Target target, Target.WriteMode mode) {
+    addLastStage();
     getPipeline().write(lastCollection, target, mode);
   }
 
   public void write(String target) {
+    addLastStage();
     getPipeline().writeTextFile(lastCollection, target);
   }
 
@@ -168,75 +167,106 @@ public class Script implements Serializable, Configurable {
   }
 
   public void group() {
+    if (lastStage != null) {
+      lastStage.emitPairs();
+    }
     this.lastCollection = group(lastCollection);
   }
 
-  public <E> PCollection<E> addStage(String name, String stageType, Stage stage,
-                                     PType<E> resultType) {
-    return addStage(
-        name, StageType.valueOf(stageType.toUpperCase(Locale.ENGLISH)),
-        stage, resultType);
+  public <T> StageResult<T> addCarrier(Carrier<T> infected) {
+    Preconditions.checkNotNull(infected, "Carrier is required");
+    Preconditions.checkNotNull(lastCollection, "Read must be called first");
+
+    if (infected.type() == Carrier.Type.COMBINE) {
+      return addCarrierAsCombiner(infected);
+    } else {
+      return addCarrierAsStage(infected);
+    }
   }
 
-  @SuppressWarnings("unchecked")
-  public <E> PCollection<E> addStage(String name, StageType type, Stage stage,
-                                     PType<E> resultType) {
-    Preconditions.checkNotNull(stage, "Stage implementation is required");
-    stages().put(name, stage);
+  private <T> StageResult<T> addCarrierAsStage(Carrier<T> infected) {
+    String stageName = infected.name();
+    carriers().put(stageName, infected);
 
-    PCollection<E> result;
-    DoFn infected;
-    if (type == StageType.REDUCE) {
-      PGroupedTable grouped = group(lastCollection);
-      infected = infect(carrierTypeFor(type, grouped, stage), name, stage);
-      result = grouped.parallelDo(name, infected, resultType);
-
-    } else if (type == StageType.COMBINE) {
-      PGroupedTable<?, ?> grouped = group(lastCollection);
-      CombineFn infectedCombiner = infectCombiner(name, stage);
-      infected = infectedCombiner;
-      result = (PCollection<E>) grouped.combineValues(infectedCombiner);
-
-    } else if (type == StageType.PARALLEL) {
-      infected = infect(carrierTypeFor(type, lastCollection, stage), name, stage);
-      result = lastCollection.parallelDo(name, infected, resultType);
-
-    } else {
-      throw new UnsupportedOperationException(
-          "[BUG] Invalid stage type: " + type);
+    addLastStagePaired((infected.type() == Carrier.Type.REDUCE) ||
+        (infected.arity() == 2));
+    if (infected.type() == Carrier.Type.REDUCE) {
+      this.lastCollection = group(lastCollection);
     }
 
-    LOG.debug("Instantiated " + infected.getClass() + " for " + name);
+    this.lastStage = makeStage(stageTypeFor(infected, lastCollection), infected);
+    stages().put(infected.name(), lastStage);
 
-    fns().put(name, infected);
-    collections().put(name, result);
+    StageResult<T> result = new StageResult<T>(stageName);
+    results().put(stageName, result);
 
-    this.lastCollection = result;
     return result;
   }
 
   @SuppressWarnings("unchecked")
-  public <S, T> DoFn<S, T> infect(CarrierType type, String name,
-                                  Stage stage) {
+  private <S, T> Stage<S, T> makeStage(StageType type, Carrier carrier) {
     switch (type) {
       case FROM_GROUPED_TABLE:
-        return new FromGroupedTable(name, this, stage);
+        return new FromGroupedTable(carrier.name(), this, carrier);
       case FROM_TABLE:
-        return new FromTable(name, this, stage);
+        return new FromTable(carrier.name(), this, carrier);
       case FROM_COLLECTION:
-        return new FromCollection<S, T>(name, this, stage);
+        return new FromCollection<S, T>(carrier.name(), this, carrier);
       default:
         throw new IllegalArgumentException(
-            "[BUG] Use infectCombiner to instantiate combiners");
+            "[BUG] Use makeCombiner to instantiate combiners");
     }
   }
 
   @SuppressWarnings("unchecked")
-  public <S, T> CombineFn<S, T> infectCombiner(String name, Stage stage) {
-    return new Combiner<S, T>(name, this, stage);
+  private <T> StageResult<T> addCarrierAsCombiner(Carrier<T> infected) {
+    Preconditions.checkArgument(infected.type() == Carrier.Type.COMBINE,
+        "[BUG] Cannot add type as combiner: " + infected.type());
+
+    addLastStagePaired(true);
+    this.lastStage = null; // combiner is added immediately
+
+    Combiner combiner = makeCombiner(infected);
+    stages().put(infected.name(), combiner);
+
+    PCollection<T> combined = (PCollection<T>) group(lastCollection)
+        .combineValues(combiner);
+
+    this.lastCollection = combined;
+
+    StageResult<T> result = new StageResult<T>(infected.name());
+    results().put(infected.name(), result);
+    result.setCollection(combined);
+
+    return result;
+  }
+
+  @SuppressWarnings("unchecked")
+  private Combiner makeCombiner(Carrier carrier) {
+    return new Combiner(carrier.name(), this, carrier);
+  }
+
+  private void addLastStage() {
+    addLastStagePaired(false);
+  }
+
+  @SuppressWarnings("unchecked")
+  private void addLastStagePaired(boolean emitPairs) {
+    if (lastStage != null) {
+      if (emitPairs) {
+        lastStage.emitPairs();
+        this.lastCollection = lastCollection.parallelDo(lastStage.name(),
+            lastStage, (PTableType<?, ?>) lastStage.resultType());
+      } else {
+        this.lastCollection = lastCollection.parallelDo(lastStage.name(),
+            lastStage, lastStage.resultType());
+      }
+      results().get(lastStage.name()).setCollection(lastCollection);
+    }
   }
 
   public PipelineResult run() {
+    ensureEval();
     return getPipeline().done();
   }
 
@@ -247,7 +277,7 @@ public class Script implements Serializable, Configurable {
         .toString();
   }
 
-  public void ensureEval() {
+  private void ensureEval() {
     if (!evaled) {
       evaled = true;
       try {
@@ -279,80 +309,75 @@ public class Script implements Serializable, Configurable {
     } else if (collection instanceof PTable) {
       return ((PTable<?, ?>) collection).groupByKey();
     } else {
-      ToTableShim<I> toTable = new ToTableShim<I>(collection);
-      return collection
-          .parallelDo(toTable, toTable.getTableType()).groupByKey();
+      throw new UnsupportedOperationException(
+          "Cannot group non-table: " + collection);
     }
   }
 
-  private static CarrierType carrierTypeFor(StageType stage,
-                                            PCollection<?> collection,
-                                            Stage proc) {
-    switch (stage) {
+  private static StageType stageTypeFor(Carrier carrier,
+                                        PCollection<?> collection) {
+    switch (carrier.type()) {
       case COMBINE:
-        return CarrierType.COMBINER;
+        return StageType.COMBINER;
       case REDUCE:
-        return CarrierType.FROM_GROUPED_TABLE;
+        return StageType.FROM_GROUPED_TABLE;
       default:
         if (collection instanceof PGroupedTable) {
-          return CarrierType.FROM_GROUPED_TABLE;
-        } else if (collection instanceof PTable || proc.arity() == 2) {
-          return CarrierType.FROM_TABLE;
+          return StageType.FROM_GROUPED_TABLE;
+        } else if (collection instanceof PTable || carrier.arity() == 2) {
+          return StageType.FROM_TABLE;
         }
-        return CarrierType.FROM_COLLECTION;
+        return StageType.FROM_COLLECTION;
     }
   }
 
-  public Map<String, DoFn> fns() {
-    if (fnsByName == null) {
-      fnsByName = Maps.newHashMap();
-    }
-    return fnsByName;
-  }
-
-  @SuppressWarnings("unchecked")
-  public <S, T> DoFn<S, T> getDoFn(String name) {
-    ensureEval();
-    return (DoFn<S, T>) fns().get(name);
-  }
-
-  public Map<String, Stage> stages() {
+  private Map<String, DoFn> stages() {
     if (stagesByName == null) {
-      stagesByName = Maps.newHashMap();
+      this.stagesByName = Maps.newHashMap();
     }
     return stagesByName;
   }
 
   @SuppressWarnings("unchecked")
-  public <S, T> Stage<S, T> getStage(String name) {
+  public <S, T> DoFn<S, T> getDoFn(String name) {
     ensureEval();
-    return (Stage<S, T>) stages().get(name);
+    return (DoFn<S, T>) stages().get(name);
   }
 
-  public Map<String, PCollection> collections() {
-    if (collectionsByName == null) {
-      collectionsByName = Maps.newHashMap();
+  private LinkedHashMap<String, Carrier> carriers() {
+    if (carriersByName == null) {
+      this.carriersByName = Maps.newLinkedHashMap();
     }
-    return collectionsByName;
+    return carriersByName;
   }
 
   @SuppressWarnings("unchecked")
-  public <S> PCollection<S> getCollection(String name) {
+  public <T> Carrier<T> getCarrier(String name) {
     ensureEval();
-    return (PCollection<S>) collections().get(name);
+    return (Carrier<T>) carriers().get(name);
   }
 
-  private transient Configuration conf = null;
+  private Map<String, StageResult> results() {
+    if (resultsByName == null) {
+      this.resultsByName = Maps.newHashMap();
+    }
+    return resultsByName;
+  }
+
+  @SuppressWarnings("unchecked")
+  public <T> StageResult<T> getResult(String name) {
+    ensureEval();
+    return (StageResult<T>) results().get(name);
+  }
 
   public Configuration getConf() {
-    return conf;
+    return getPipeline().getConfiguration();
   }
 
   @Override
   public void setConf(Configuration conf) {
-    this.conf = conf;
-    if (conf != null && pipeline != null) {
-      pipeline.setConfiguration(conf);
+    if (conf != null) {
+      getPipeline().setConfiguration(conf);
     }
   }
 

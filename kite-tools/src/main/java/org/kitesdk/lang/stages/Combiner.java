@@ -14,15 +14,19 @@
  * limitations under the License.
  */
 
-package org.kitesdk.lang.carriers;
+package org.kitesdk.lang.stages;
 
 import java.io.ObjectStreamException;
 import org.apache.crunch.CombineFn;
 import org.apache.crunch.Emitter;
 import org.apache.crunch.Pair;
+import org.apache.crunch.types.PTableType;
+import org.apache.crunch.types.PType;
 import org.apache.hadoop.mapreduce.TaskInputOutputContext;
-import org.kitesdk.lang.Stage;
+import org.kitesdk.lang.Carrier;
 import org.kitesdk.lang.Script;
+import org.kitesdk.lang.utils.PairEmitter;
+import org.kitesdk.lang.utils.WrappedEmitter;
 
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(
     value="SE_NO_SERIALVERSIONID",
@@ -31,36 +35,46 @@ public class Combiner<K, V> extends CombineFn<K, V> {
 
   private final String name;
   private final Script script;
-  private transient Stage<Pair<K, Iterable<V>>, Pair<K, V>> stage = null;
+  protected transient Carrier<Pair<K, V>> carrier = null;
+  protected transient WrappedEmitter<Pair<K, V>> wrapper = null;
 
   public Combiner(String name, Script script,
-                    Stage<Pair<K, Iterable<V>>, Pair<K, V>> stage) {
+                    Carrier<Pair<K, V>> carrier) {
     this.name = name;
     this.script = script;
-    this.stage = stage;
+    this.carrier = carrier;
   }
 
   @Override
   public void setContext(TaskInputOutputContext<?, ?, ?, ?> context) {
     super.setContext(context);
-    stage.setContext(context);
+    carrier.setContext(context);
   }
 
   @Override
   public void initialize() {
     super.initialize();
-    stage.initialize();
+    carrier.initialize();
+    this.wrapper = new PairEmitter<Pair<K, V>>();
   }
 
   @Override
   public void cleanup(Emitter<Pair<K, V>> emitter) {
-    stage.cleanup(emitter);
+    wrapper.setEmitter(emitter);
+    carrier.cleanup(wrapper);
     super.cleanup(emitter);
+  }
+
+  @SuppressWarnings("unchecked")
+  public PTableType<K, V> resultType() {
+    PType<K> keyType = (PType<K>) carrier.keyType();
+    return keyType.getFamily().tableOf(keyType, (PType<V>) carrier.valueType());
   }
 
   @Override
   public void process(Pair<K, Iterable<V>> input, Emitter<Pair<K, V>> emitter) {
-    stage.processPair(input, emitter);
+    wrapper.setEmitter(emitter);
+    carrier.processPair(input, wrapper);
   }
 
   protected Object writeReplace() throws ObjectStreamException {

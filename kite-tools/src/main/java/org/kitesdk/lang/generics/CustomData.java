@@ -35,6 +35,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
+import org.apache.avro.mapred.Pair;
 
 public class CustomData extends GenericData {
 
@@ -130,10 +131,14 @@ public class CustomData extends GenericData {
     }
 
     final Object record;
-    try {
-      record = factory.createRecord(schema.getName(), fieldNamesCache.get(schema));
-    } catch (ExecutionException ex) {
-      throw Throwables.propagate(ex);
+    if ("org.apache.avro.mapred.Pair".equals(schema.getFullName())) {
+      record = new Pair(schema);
+    } else {
+      try {
+        record = factory.createRecord(schema.getName(), fieldNamesCache.get(schema));
+      } catch (ExecutionException ex) {
+        throw Throwables.propagate(ex);
+      }
     }
     schemaCache.put(record, schema);
     return record;

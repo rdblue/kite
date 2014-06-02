@@ -25,7 +25,7 @@ import org.apache.crunch.types.avro.Avros as Avros
 
 # kite java classes
 import org.kitesdk.lang.generics.CustomData.GENERIC_SCHEMA as SCHEMA
-import org.kitesdk.lang.Stage as Stage
+import org.kitesdk.lang.Carrier as Carrier
 import org.kitesdk.lang.Script as Script
 
 # set up avro types
@@ -113,34 +113,39 @@ def verbose():
     """
     _script.enableDebug()
 
-def _make_stage( func ):
+def _infect( stage_type, func ):
     """ Returns an instance of the java class with func as the call method
     """
     if _arity(func) == 3: # 1 added for self / context
-        stage_type = Stage.Arity2
+        carrier_type = Carrier.Arity2
     else:
-        stage_type = Stage.Arity1
+        carrier_type = Carrier.Arity1
 
-    inst_class = type( func.func_name, (stage_type,), {
+    inst_class = type( func.func_name, (carrier_type,), {
             # this is where setup/teardown methods go, too
             'call': func,
-            'name': func.func_name,
-            '__call__': func.__call__
+            '__call__': func.__call__,
+            'name': _get_name,
+            'type': _get_stage_type,
+            'stage_type': stage_type,
+            'keyType': _get_type,
+            'valueType': _get_type
         } )
     return inst_class() # return an instance
 
-def _decorator( stage_name, *args, **kwargs ):
+def _decorator( stage_type, *args, **kwargs ):
     """ Creates a decorator that adds the function as the given stage
 
     Because this method may be used as a decorator itself, it will check
     the args and run the decorator function if necessary.
     """
     def decorator( func ):
-        stage = _make_stage( func )
+        # infect a java carrier
+        infected = _infect( stage_type, func )
         # add it to the script
-        _script.addStage( func.func_name, stage_name, stage, _generic_type )
+        _script.addCarrier( infected )
         # return a Function; the decorated object should still be callable
-        return stage
+        return infected
 
     func, others = _split_args( types.FunctionType, args )
     if func:
@@ -148,9 +153,18 @@ def _decorator( stage_name, *args, **kwargs ):
         return decorator( func )
     else:
         # used as a decorator factory
-        if len(others) > 0 and stage_name == 'parallel':
+        if len(others) > 0 and stage_type == 'parallel':
             _script.read( others[0] )
         return decorator
+
+def _get_name( self ):
+    return self.call.func_name
+
+def _get_stage_type( self ):
+    return Carrier.Type.valueOf( self.stage_type.upper() )
+
+def _get_type( self ):
+    return _generic_type
 
 def _split_args( some_type, args ):
     if len( args ) >= 1 and isinstance( args[0], some_type ):

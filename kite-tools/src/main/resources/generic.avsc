@@ -1,4 +1,4 @@
-[ {
+{
   "type" : "record",
   "name" : "Container",
   "namespace" : "org.kitesdk.lang.generic",
@@ -12,15 +12,4 @@
       "items" : "Container"
     } ]
   } ]
-}, {
-  "type" : "record",
-  "name" : "Pair",
-  "namespace" : "org.kitesdk.lang.generic",
-  "fields" : [ {
-    "name" : "first",
-    "type" : "Container"
-  }, {
-    "name" : "second",
-    "type" : "Container"
-  } ]
-} ]
+}

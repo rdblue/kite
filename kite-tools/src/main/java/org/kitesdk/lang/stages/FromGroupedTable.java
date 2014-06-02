@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-package org.kitesdk.lang.carriers;
+package org.kitesdk.lang.stages;
 
-import org.apache.crunch.Emitter;
+import org.kitesdk.lang.Carrier;
 import org.kitesdk.lang.Script;
-import org.kitesdk.lang.Stage;
 
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(
     value="SE_NO_SERIALVERSIONID",
     justification="Purposely not compatible with other versions")
-public class FromCollection<S, T> extends Carrier<S, T> {
-  public FromCollection(String name, Script script, Stage<S, T> stage) {
-    super(name, script, stage);
+public class FromGroupedTable<KI, VI, T> extends FromTable<KI, Iterable<VI>, T> {
+  public FromGroupedTable(String name, Script script,
+                             Carrier<T> carrier) {
+    super(name, script, carrier);
   }
 
-  @Override
-  public void process(S input, Emitter<T> emitter) {
-    stage.processSingle(input, emitter);
-  }
+  // TODO: Add Iterable wrapper here and in Combiner
 }

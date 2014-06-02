@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+import sys
 import re
 import string
 from kite import *
@@ -33,7 +35,7 @@ def sum( context, word, counts ):
 
 @parallel
 def rebase( context, word, count ):
-    print( repr( {'word': word, 'count': count} ) )
+    sys.stderr.write( repr( {'word': word, 'count': count} ) + "\n" )
     context.emit( 'word', 1 )
 
 @reduce
@@ -43,4 +45,4 @@ def final_output( context, word, counts ):
         total += count
     context.emit( "unique words => %d" % (total,) )
 
-write( "target/output.py.text" )
+write( "output.text" )

@@ -14,23 +14,29 @@
  * limitations under the License.
  */
 
-package org.kitesdk.lang.carriers;
+package org.kitesdk.lang.stages;
 
-import org.apache.crunch.Emitter;
-import org.apache.crunch.Pair;
+import java.io.ObjectStreamException;
+import java.io.Serializable;
 import org.kitesdk.lang.Script;
-import org.kitesdk.lang.Stage;
 
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(
     value="SE_NO_SERIALVERSIONID",
     justification="Purposely not compatible with other versions")
-public class FromTable<KI, VI, T> extends Carrier<Pair<KI, VI>, T> {
-  public FromTable(String name, Script script, Stage<Pair<KI, VI>, T> stage) {
-    super(name, script, stage);
+class StandIn implements Serializable {
+  private String name;
+  private Script script;
+
+  public StandIn(String name, Script script) {
+    this.name = name;
+    this.script = script;
+    System.err.println(
+        "Using stage StandIn to serialize \"" + name + "\" in " + script);
   }
 
-  @Override
-  public void process(Pair<KI, VI> input, Emitter<T> emitter) {
-    stage.processPair(input, emitter);
+  private Object readResolve() throws ObjectStreamException {
+    System.err.println(
+        "Resolving stage StandIn \"" + name + "\" in " + script);
+    return script.getDoFn(name);
   }
 }

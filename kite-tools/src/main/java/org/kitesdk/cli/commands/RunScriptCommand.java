@@ -78,12 +78,11 @@ public class RunScriptCommand extends BaseCommand {
     console.info("Running script...");
 
     Script script = Script.get(scriptName, open(scriptName));
+
     script.setPipeline(mem ? MemPipeline.getInstance():
         new MRPipeline(Script.class, script.getName()));
 
     script.setConf(getConf());
-
-    script.ensureEval();
 
     try {
       return script.run().succeeded() ? 0 : 1;
@@ -97,7 +96,9 @@ public class RunScriptCommand extends BaseCommand {
   public List<String> getExamples() {
     return Lists.newArrayList(
         "# run ruby word count script:",
-        "word-count.rb"
+        "word-count.rb --jar jruby-complete.jar",
+        "# run python word count script:",
+        "word-count.py --jar jython-standalone.jar"
     );
   }
 }

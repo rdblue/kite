@@ -14,20 +14,25 @@
  * limitations under the License.
  */
 
-package org.kitesdk.lang.carriers;
+package org.kitesdk.lang.utils;
 
-import org.apache.crunch.Pair;
-import org.kitesdk.lang.Script;
-import org.kitesdk.lang.Stage;
+import org.apache.crunch.Emitter;
 
-@edu.umd.cs.findbugs.annotations.SuppressWarnings(
-    value="SE_NO_SERIALVERSIONID",
-    justification="Purposely not compatible with other versions")
-public class FromGroupedTable<KI, VI, T> extends FromTable<KI, Iterable<VI>, T> {
-  public FromGroupedTable(String name, Script script,
-                             Stage<Pair<KI, Iterable<VI>>, T> stage) {
-    super(name, script, stage);
+public class SingleEmitter<T> implements WrappedEmitter<T> {
+  Emitter<T> wrapped = null;
+
+  public void setEmitter(Emitter<T> wrapped) {
+    this.wrapped = wrapped;
   }
 
-  // TODO: Add Iterable wrapper here and in Combiner
+  @Override
+  @SuppressWarnings("unchecked")
+  public <I> void emit(I value) {
+    wrapped.emit((T) value);
+  }
+
+  @Override
+  public <K, V> void emit(K key, V value) {
+    throw new IllegalArgumentException("Cannot write multiple values");
+  }
 }

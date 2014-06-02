@@ -18,33 +18,45 @@ package org.kitesdk.lang;
 
 
 import com.google.common.base.Preconditions;
-import org.apache.crunch.Emitter;
 import org.apache.crunch.Pair;
+import org.apache.crunch.types.PType;
 import org.apache.hadoop.mapreduce.TaskInputOutputContext;
+import org.kitesdk.lang.utils.WrappedEmitter;
 
-public interface Stage<S, T> {
+public interface Carrier<T> {
 
   public void setContext(TaskInputOutputContext<?, ?, ?, ?> context);
 
-  public <I> void processSingle(I single, Emitter<T> emitter);
+  public <I> void processSingle(I single, WrappedEmitter<T> emitter);
 
-  public <K, V> void processPair(Pair<K, V> pair, Emitter<T> emitter);
+  public <I1, I2> void processPair(Pair<I1, I2> pair, WrappedEmitter<T> emitter);
 
   public void initialize();
 
-  public void cleanup(Emitter<T> emitter);
+  public void cleanup(WrappedEmitter<T> emitter);
+
+  public String name();
+
+  public Type type();
+
+  public PType<?> keyType();
+
+  public PType<?> valueType();
 
   public int arity();
 
-  abstract class AbstractStage<S, T> implements Stage<S, T> {
+  public enum Type {
+    PARALLEL, COMBINE, REDUCE
+  }
+
+  abstract static class AbstractCarrier<T> implements Carrier<T> {
     private TaskInputOutputContext<?, ?, ?, ?> context = null;
-    private Emitter<T> emitter = null;
+    private WrappedEmitter<T> emitter = null;
 
     public abstract <I> void process(I input);
-    public abstract <K, V> void process(K key, V value);
+    public abstract <I1, I2> void process(I1 key, I2 value);
     public abstract void before();
     public abstract void after();
-    public abstract String defaultGroup();
 
     @Override
     public final void setContext(TaskInputOutputContext<?, ?, ?, ?> context) {
@@ -58,41 +70,31 @@ public interface Stage<S, T> {
     }
 
     @Override
-    public final void cleanup(Emitter<T> emitter) {
+    public final void cleanup(WrappedEmitter<T> emitter) {
       this.emitter = emitter;
       after();
       this.emitter = null;
     }
 
-    @SuppressWarnings("unchecked")
-    public final void process(S input, Emitter<T> emitter) {
-      if (input instanceof Pair) {
-        processPair((Pair) input, emitter);
-      } else {
-        processSingle(input, emitter);
-      }
-    }
-
     @Override
-    public final <I> void processSingle(I input, Emitter<T> emitter) {
+    public final <I> void processSingle(I input, WrappedEmitter<T> emitter) {
       this.emitter = emitter;
       process(input);
     }
 
     @Override
-    public final <K, V> void processPair(Pair<K, V> pair, Emitter<T> emitter) {
+    public final <I1, I2> void processPair(Pair<I1, I2> pair, WrappedEmitter<T> emitter) {
       this.emitter = emitter;
       process(pair.first(), pair.second());
     }
 
-    @SuppressWarnings("unchecked")
     public <K, V> void emit(K key, V value) {
       Preconditions.checkArgument(emitter != null,
           "Cannot call emit outside of processing");
-      emitter.emit((T) Pair.of(key, value));
+      emitter.emit(key, value);
     }
 
-    public void emit(T value) {
+    public <I> void emit(I value) {
       Preconditions.checkArgument(emitter != null,
           "Cannot call emit outside of processing");
       emitter.emit(value);
@@ -103,7 +105,7 @@ public interface Stage<S, T> {
     }
 
     public final void increment(Object counter, long amount) {
-      increment(defaultGroup(), counter.toString(), amount);
+      increment(name(), counter.toString(), amount);
     }
 
     public final void increment(Object group, Object counter) {
@@ -115,7 +117,7 @@ public interface Stage<S, T> {
     }
   }
 
-  public abstract class Arity1<S, T> extends AbstractStage<S, T> {
+  public abstract static class Arity1<T> extends AbstractCarrier<T> {
     public abstract <I> Object call(I one);
 
     @Override
@@ -125,18 +127,13 @@ public interface Stage<S, T> {
     public void after() {}
 
     @Override
-    public String defaultGroup() {
-      // TODO: set this correctly
-      return "test";
-    }
-
-    @Override
     public final <I> void process(I input) {
       call(input);
     }
 
     @Override
-    public <K, V> void process(K key, V value) {
+    public final <I1, I2> void process(I1 key, I2 value) {
+      // TODO: What should be passed: key, value, or both?
       call(new Object[] {key, value});
     }
 
@@ -146,8 +143,8 @@ public interface Stage<S, T> {
     }
   }
 
-  public abstract class Arity2<S, T> extends AbstractStage<S, T> {
-    public abstract <K, V> Object call(K one, V two);
+  public abstract static class Arity2<T> extends AbstractCarrier<T> {
+    public abstract <I1, I2> Object call(I1 one, I2 two);
 
     @Override
     public void before() {}
@@ -156,18 +153,12 @@ public interface Stage<S, T> {
     public void after() {}
 
     @Override
-    public String defaultGroup() {
-      // TODO: set this correctly
-      return "test";
-    }
-
-    @Override
     public final <I> void process(I input) {
       call(input, null);
     }
 
     @Override
-    public final <K, V> void process(K key, V value) {
+    public final <I1, I2> void process(I1 key, I2 value) {
       call(key, value);
     }
 

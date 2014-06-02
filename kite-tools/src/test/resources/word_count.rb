@@ -15,33 +15,29 @@
 #
 require 'kite'
 
-$stderr.puts "Word count!"
+include Kite
 
-analytic 'Word count' do
-
-  map 'map phase', :from => '../LICENSE.txt' do |line|
-    puts( line.inspect )
-    line.split(/\s+/).each do |word|
-      word.gsub! /[[:punct:]]/, ''  # remove punctuation
-      word.downcase!                # convert to lower case
-      emit word, 1 unless word.nil? or word.empty?
-    end
+map 'map phase', :from => '../LICENSE.txt' do |line|
+  puts( line.inspect )
+  line.split(/\s+/).each do |word|
+    word.gsub! /[[:punct:]]/, ''  # remove punctuation
+    word.downcase!                # convert to lower case
+    emit word, 1 unless word.nil? or word.empty?
   end
-
-  combine 'combine phase' do |word, counts|
-    puts word.inspect
-    total = 0
-    counts.each do |count|
-      total += count
-    end
-    emit word, total
-  end
-
-  parallel 'final output' do |word, count|
-    puts( {:word => word, :count => count}.inspect )
-    emit "#{word} => #{count}"
-  end
-
-  write 'target/output.text'
-
 end
+
+combine 'combine phase' do |word, counts|
+  puts word.inspect
+  total = 0
+  counts.each do |count|
+    total += count
+  end
+  emit word, total
+end
+
+parallel 'final output' do |word, count|
+  puts( {:word => word, :count => count}.inspect )
+  emit "#{word} => #{count}"
+end
+
+write 'target/output.rb.text'

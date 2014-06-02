@@ -16,8 +16,11 @@
 
 package org.kitesdk.lang.generics.ruby;
 
+import org.apache.avro.AvroRuntimeException;
+import org.apache.avro.generic.IndexedRecord;
 import org.jruby.Ruby;
 import org.jruby.RubyNil;
+import org.jruby.RubyString;
 import org.jruby.RubyStruct;
 import org.jruby.RubySymbol;
 import org.jruby.javasupport.JavaUtil;
@@ -56,7 +59,7 @@ public class RubyData extends CustomData {
   @Override
   protected boolean isString(Object datum) {
     // if a symbol does not have a known schema, then it is a string
-    return (datum instanceof CharSequence) ||
+    return (datum instanceof RubyString) || (datum instanceof CharSequence) ||
         ((datum instanceof RubySymbol) && !hasSchema(datum));
   }
 
@@ -67,14 +70,28 @@ public class RubyData extends CustomData {
 
   @Override
   public void setField(Object record, String name, int pos, Object value) {
-    RubyStruct struct = (RubyStruct) record; // problems => ClassCastException
-    struct.set(JavaUtil.convertJavaToUsableRubyObject(runtime, value), pos);
+    if (record instanceof RubyStruct) {
+      RubyStruct struct = (RubyStruct) record; // problems => ClassCastException
+      struct.set(JavaUtil.convertJavaToUsableRubyObject(runtime, value), pos);
+    } else if (record instanceof IndexedRecord) {
+      ((IndexedRecord) record).put(pos, value);
+    } else {
+      throw new AvroRuntimeException(
+          "Unsupported record type: " + record.getClass());
+    }
   }
 
   @Override
   public Object getField(Object record, String name, int position) {
-    RubyStruct struct = (RubyStruct) record; // problems => ClassCastException
-    return struct.get(position).toJava(Object.class);
+    if (record instanceof RubyStruct) {
+      RubyStruct struct = (RubyStruct) record; // problems => ClassCastException
+      return struct.get(position).toJava(Object.class);
+    } else if (record instanceof IndexedRecord) {
+      return ((IndexedRecord) record).get(position);
+    } else {
+      throw new AvroRuntimeException(
+          "Unsupported record type: " + record.getClass());
+    }
   }
 
 }

@@ -16,6 +16,8 @@
 
 package org.kitesdk.lang.generics.python;
 
+import org.apache.avro.AvroRuntimeException;
+import org.apache.avro.generic.IndexedRecord;
 import org.kitesdk.lang.generics.CustomData;
 import org.python.core.Py;
 import org.python.core.PyBaseString;
@@ -41,7 +43,7 @@ public class PyData extends CustomData {
 
   @Override
   protected boolean isRecord(Object datum) {
-    return (datum instanceof PyStringMap);
+    return (datum instanceof IndexedRecord) || (datum instanceof PyStringMap);
   }
 
   @Override
@@ -63,15 +65,29 @@ public class PyData extends CustomData {
 
   @Override
   public void setField(Object record, String name, int pos, Object value) {
-    PyStringMap strmap = (PyStringMap) record; // problems => ClassCastException
-    // strmap uses interned strings
-    strmap.__setitem__(name.intern(), Py.java2py(value));
+    if (record instanceof PyStringMap) {
+      PyStringMap strmap = (PyStringMap) record; // problems => ClassCastException
+      // strmap uses interned strings
+      strmap.__setitem__(name.intern(), Py.java2py(value));
+    } else if (record instanceof IndexedRecord) {
+      ((IndexedRecord) record).put(pos, value);
+    } else {
+      throw new AvroRuntimeException(
+          "Unsupported record type: " + record.getClass());
+    }
   }
 
   @Override
   public Object getField(Object record, String name, int position) {
-    PyStringMap strmap = (PyStringMap) record; // problems => ClassCastException
-    return Py.tojava(strmap.__getitem__(name.intern()), Object.class);
+    if (record instanceof PyStringMap) {
+      PyStringMap strmap = (PyStringMap) record; // problems => ClassCastException
+      return Py.tojava(strmap.__getitem__(name.intern()), Object.class);
+    } else if (record instanceof IndexedRecord) {
+      return ((IndexedRecord) record).get(position);
+    } else {
+      throw new AvroRuntimeException(
+          "Unsupported record type: " + record.getClass());
+    }
   }
 
 //  private Object pyToJava(PyObject obj) {

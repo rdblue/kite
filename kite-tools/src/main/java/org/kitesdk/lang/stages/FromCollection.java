@@ -14,29 +14,22 @@
  * limitations under the License.
  */
 
-package org.kitesdk.lang.carriers;
+package org.kitesdk.lang.stages;
 
-import java.io.ObjectStreamException;
-import java.io.Serializable;
+import org.kitesdk.lang.Carrier;
 import org.kitesdk.lang.Script;
+import org.kitesdk.lang.utils.WrappedEmitter;
 
 @edu.umd.cs.findbugs.annotations.SuppressWarnings(
     value="SE_NO_SERIALVERSIONID",
     justification="Purposely not compatible with other versions")
-class StandIn implements Serializable {
-  private String name;
-  private Script script;
-
-  public StandIn(String name, Script script) {
-    this.name = name;
-    this.script = script;
-    System.err.println(
-        "Using carrier StandIn to serialize \"" + name + "\" in " + script);
+public class FromCollection<S, T> extends Stage<S, T> {
+  public FromCollection(String name, Script script, Carrier<T> carrier) {
+    super(name, script, carrier);
   }
 
-  private Object readResolve() throws ObjectStreamException {
-    System.err.println(
-        "Resolving carrier StandIn \"" + name + "\" in " + script);
-    return script.getDoFn(name);
+  @Override
+  public void process(S input, WrappedEmitter<T> emitter) {
+    infected.processSingle(input, emitter);
   }
 }

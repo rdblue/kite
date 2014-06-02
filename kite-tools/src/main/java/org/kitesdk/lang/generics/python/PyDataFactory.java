@@ -51,7 +51,7 @@ public class PyDataFactory implements DataFactory
 
   @Override
   public PyStringMap createRecord(String name, List<String> fieldNames) {
-    // Python's equivalent of RubyStruct, namedtuple,  is just a method that
+    // Python's equivalent of RubyStruct, namedtuple, is just a method that
     // evals a String to create the right class :(
     return new PyStringMap();
   }
