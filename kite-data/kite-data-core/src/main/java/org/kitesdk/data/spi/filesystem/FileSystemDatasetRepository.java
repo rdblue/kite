@@ -15,10 +15,10 @@
  */
 package org.kitesdk.data.spi.filesystem;
 
-import javax.annotation.Nullable;
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetException;
+import org.kitesdk.data.DatasetIOException;
 import org.kitesdk.data.DatasetNotFoundException;
 import org.kitesdk.data.DatasetRepositoryException;
 import org.kitesdk.data.spi.FieldPartitioner;
@@ -73,6 +73,12 @@ import org.slf4j.LoggerFactory;
  * entries written up to that point. For Parquet files, <code>flush()</code> has no
  * effect.
  * </p>
+ * <p>
+ * This repository implementation uses the location descriptor attribute.
+ * Locations passed to create are ignored and overwritten. To change the
+ * storage location for datasets created by this class, set an alternate
+ * metadata provider. Locations returned from the metadata provider are final.
+ * </p>
  *
  * @see org.kitesdk.data.DatasetRepository
  * @see org.kitesdk.data.Dataset
@@ -85,34 +91,30 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
   private static final Logger LOG = LoggerFactory
     .getLogger(FileSystemDatasetRepository.class);
 
-  private final MetadataProvider metadataProvider;
   private final Configuration conf;
-  private final URI repositoryUri;
+  private final FileSystem fs;
+  private final Path storage;
+  private final MetadataProvider metadataProvider;
 
-  /**
-   * Construct a {@link FileSystemDatasetRepository} for the given
-   * {@link MetadataProvider} for metadata storage.
-   *
-   * @param conf a {@link Configuration} for {@link FileSystem} access
-   * @param metadataProvider the provider for metadata storage
-   *
-   * @since 0.8.0
-   */
-  public FileSystemDatasetRepository(
-      Configuration conf, MetadataProvider metadataProvider) {
-    this(conf, metadataProvider, null);
+  public FileSystemDatasetRepository(Configuration conf, Path storage) {
+    this(conf, storage, new FileSystemMetadataProvider(conf, storage));
   }
 
-  public FileSystemDatasetRepository(
-      Configuration conf, MetadataProvider metadataProvider,
-      @Nullable URI repositoryUri) {
+  public FileSystemDatasetRepository(Configuration conf, Path storage,
+                                     MetadataProvider provider) {
     Preconditions.checkNotNull(conf, "Configuration cannot be null");
-    Preconditions.checkNotNull(metadataProvider,
-      "Metadata provider cannot be null");
-
+    Preconditions.checkNotNull(storage, "Storage path cannot be null");
     this.conf = conf;
-    this.metadataProvider = metadataProvider;
-    this.repositoryUri = repositoryUri;
+
+    try {
+      this.fs = storage.getFileSystem(conf);
+    } catch (IOException e) {
+      throw new DatasetIOException(
+          "Cannot get FileSystem for repository location: " + storage, e);
+    }
+
+    this.storage = fs.makeQualified(storage);
+    this.metadataProvider = provider;
   }
 
   @Override
@@ -121,27 +123,24 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
     Preconditions.checkNotNull(descriptor, "Descriptor cannot be null");
     Preconditions.checkArgument(descriptor.getLocation() == null,
         "Descriptor location cannot be set; " +
-        "it is assigned by the MetadataProvider");
+        "it is assigned by the FileSystem implementation");
 
-    DatasetDescriptor newDescriptor = metadataProvider.create(name, descriptor);
+    DatasetDescriptor newDescriptor = new DatasetDescriptor.Builder(descriptor)
+        .location(pathForDataset(name)) // suggest a location for this dataset
+        .build();
 
-    final URI location = newDescriptor.getLocation();
-    if (location == null) {
-      throw new DatasetRepositoryException(
-          "[BUG] MetadataProvider did not assign a location to dataset:" +
-          name);
-    }
+    newDescriptor = metadataProvider.create(name, newDescriptor);
 
     FileSystemUtil.ensureLocationExists(newDescriptor, conf);
 
-    LOG.debug("Created dataset:{} schema:{} datasetPath:{}", new Object[] {
-        name, newDescriptor.getSchema(), location.toString() });
+    LOG.debug("Created dataset: {} schema: {} datasetPath: {}", new Object[] {
+        name, newDescriptor.getSchema(), newDescriptor.getLocation() });
 
     return new FileSystemDataset.Builder()
         .name(name)
         .configuration(conf)
         .descriptor(newDescriptor)
-        .uri(makeDatasetUri(repositoryUri, name))
+        .uri(makeDatasetUri(getUri(), name))
         .partitionKey(newDescriptor.isPartitioned() ?
             org.kitesdk.data.impl.Accessor.getDefault().newPartitionKey() :
             null)
@@ -190,15 +189,14 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
 
     DatasetDescriptor updatedDescriptor = metadataProvider.update(name, descriptor);
 
-    LOG.debug("Updated dataset:{} schema:{} datasetPath:{}", new Object[] {
-        name, updatedDescriptor.getSchema(),
-        updatedDescriptor.getLocation().toString() });
+    LOG.debug("Updated dataset: {} schema: {} location: {}", new Object[] {
+        name, updatedDescriptor.getSchema(), updatedDescriptor.getLocation() });
 
     return new FileSystemDataset.Builder()
         .name(name)
         .configuration(conf)
         .descriptor(updatedDescriptor)
-        .uri(makeDatasetUri(repositoryUri, name))
+        .uri(makeDatasetUri(getUri(), name))
         .partitionKey(updatedDescriptor.isPartitioned() ?
             org.kitesdk.data.impl.Accessor.getDefault().newPartitionKey() :
             null)
@@ -210,7 +208,7 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
   public <E> Dataset<E> load(String name) {
     Preconditions.checkNotNull(name, "Dataset name cannot be null");
 
-    LOG.debug("Loading dataset:{}", name);
+    LOG.debug("Loading dataset: {}", name);
 
     DatasetDescriptor descriptor = metadataProvider.load(name);
 
@@ -218,7 +216,7 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
         .name(name)
         .configuration(conf)
         .descriptor(descriptor)
-        .uri(makeDatasetUri(repositoryUri, name))
+        .uri(makeDatasetUri(getUri(), name))
         .partitionKey(descriptor.isPartitioned() ?
             org.kitesdk.data.impl.Accessor.getDefault().newPartitionKey() :
             null)
@@ -287,7 +285,25 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
 
   @Override
   public URI getUri() {
-    return repositoryUri;
+    return URI.create("repo:" + storage.toUri());
+  }
+
+  private Path pathForDataset(String name) {
+    return fs.makeQualified(pathForDataset(storage, name));
+  }
+
+  /**
+   * Returns the correct dataset path for the given name and root directory.
+   *
+   * @param root A Path
+   * @param name A String dataset name
+   * @return the correct dataset Path
+   */
+  static Path pathForDataset(Path root, String name) {
+    Preconditions.checkArgument(name != null, "Dataset name cannot be null");
+
+    // Why replace '.' here? Is this a namespacing hack?
+    return new Path(root, name.replace('.', Path.SEPARATOR_CHAR));
   }
 
   /**
@@ -358,6 +374,8 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
   @Override
   public String toString() {
     return Objects.toStringHelper(this)
+        .add("fs", fs)
+        .add("storage", storage)
         .add("metadataProvider", metadataProvider)
         .toString();
   }
@@ -457,9 +475,6 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
      * @since 0.9.0
      */
     public FileSystemDatasetRepository build() {
-      URI repositoryUri = null;
-      MetadataProvider metadataProvider = null;
-
       if (configuration == null) {
         this.configuration = new Configuration();
       }
@@ -472,21 +487,11 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
       if (fileSystem != null) {
         // if the FS doesn't match, this will throw IllegalArgumentException
         Path qualifiedRootDirectory = fileSystem.makeQualified(rootDirectory);
-        repositoryUri = makeRepositoryUri(qualifiedRootDirectory);
-        metadataProvider = new FileSystemMetadataProvider(
+        return new FileSystemDatasetRepository(
             configuration, qualifiedRootDirectory);
       } else {
-        repositoryUri = makeRepositoryUri(rootDirectory);
-        metadataProvider = new FileSystemMetadataProvider(
-            configuration, rootDirectory);
+        return new FileSystemDatasetRepository(configuration, rootDirectory);
       }
-
-      return new FileSystemDatasetRepository(configuration, metadataProvider,
-          repositoryUri);
-    }
-
-    private static URI makeRepositoryUri(Path rootDirectory) {
-      return URI.create("repo:" + rootDirectory.toUri());
     }
   }
 

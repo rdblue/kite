@@ -17,6 +17,7 @@
 package org.kitesdk.data.filesystem;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.kitesdk.data.spi.MetadataProvider;
 
 /**
@@ -61,8 +62,8 @@ public class FileSystemDatasetRepository extends
   /**
    * This is included to avoid compiler complaints.
    */
-  FileSystemDatasetRepository(Configuration conf, MetadataProvider metadataProvider) {
-    super(conf, metadataProvider);
+  FileSystemDatasetRepository(Configuration conf, Path storage) {
+    super(conf, storage);
   }
 
   /**
