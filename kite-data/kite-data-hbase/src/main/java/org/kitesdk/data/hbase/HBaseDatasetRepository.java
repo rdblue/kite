@@ -117,7 +117,8 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository implements
     }
     Dao dao = SpecificAvroDao.buildCompositeDaoWithEntityManager(tablePool,
         tableName, subEntityClasses, schemaManager);
-    return new DaoDataset<E>(name, dao, descriptors.get(0));
+    return new DaoDataset<E>(name, dao, descriptors.get(0),
+        makeDatasetUri(getUri(), name));
   }
 
   @SuppressWarnings("unchecked")
@@ -131,7 +132,8 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository implements
     } else {
       dao = new GenericAvroDao(tablePool, tableName, entityName, schemaManager);
     }
-    return new DaoDataset(name, dao, descriptor);
+    return new DaoDataset(name, dao, descriptor,
+        makeDatasetUri(getUri(), name));
   }
 
   private static boolean isSpecific(DatasetDescriptor descriptor) {
@@ -193,6 +195,17 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository implements
       return URI.create(String.format("repo:hbase:%s:%s",
           conf.get(HConstants.ZOOKEEPER_QUORUM),
           conf.get(HConstants.ZOOKEEPER_CLIENT_PORT)));
+    }
+  }
+
+  private static URI makeDatasetUri(URI repoUri, String name) {
+    String storage = (repoUri == null ? "" : repoUri.getRawSchemeSpecificPart());
+    int queryStart = storage.indexOf('?');
+    if (queryStart < 0) {
+      return URI.create("dataset:" + storage + "/" + name);
+    } else {
+      return URI.create("dataset:" + storage.substring(0, queryStart) +
+          "/" + name + storage.substring(queryStart));
     }
   }
 }

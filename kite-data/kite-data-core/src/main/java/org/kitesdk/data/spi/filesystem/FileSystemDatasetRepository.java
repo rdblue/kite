@@ -142,6 +142,7 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
         .name(name)
         .configuration(conf)
         .descriptor(newDescriptor)
+        .uri(makeDatasetUri(repositoryUri, name))
         .partitionKey(newDescriptor.isPartitioned() ?
             org.kitesdk.data.impl.Accessor.getDefault().newPartitionKey() :
             null)
@@ -199,6 +200,7 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
         .name(name)
         .configuration(conf)
         .descriptor(updatedDescriptor)
+        .uri(makeDatasetUri(repositoryUri, name))
         .partitionKey(updatedDescriptor.isPartitioned() ?
             org.kitesdk.data.impl.Accessor.getDefault().newPartitionKey() :
             null)
@@ -219,6 +221,7 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
         .name(name)
         .configuration(conf)
         .descriptor(descriptor)
+        .uri(makeDatasetUri(repositoryUri, name))
         .partitionKey(descriptor.isPartitioned() ?
             org.kitesdk.data.impl.Accessor.getDefault().newPartitionKey() :
             null)
@@ -486,8 +489,19 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
           repositoryUri);
     }
 
-    private URI makeRepositoryUri(Path rootDirectory) {
+    private static URI makeRepositoryUri(Path rootDirectory) {
       return URI.create("repo:" + rootDirectory.toUri());
+    }
+  }
+
+  private static URI makeDatasetUri(URI repoUri, String name) {
+    String storage = (repoUri == null ? "" : repoUri.getRawSchemeSpecificPart());
+    int queryStart = storage.indexOf('?');
+    if (queryStart < 0) {
+      return URI.create("dataset:" + storage + "/" + name);
+    } else {
+      return URI.create("dataset:" + storage.substring(0, queryStart) +
+          "/" + name + storage.substring(queryStart));
     }
   }
 }
