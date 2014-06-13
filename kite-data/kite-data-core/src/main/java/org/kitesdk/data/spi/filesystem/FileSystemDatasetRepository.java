@@ -124,7 +124,6 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
         "it is assigned by the MetadataProvider");
 
     DatasetDescriptor newDescriptor = metadataProvider.create(name, descriptor);
-    newDescriptor = addRepositoryUri(newDescriptor);
 
     final URI location = newDescriptor.getLocation();
     if (location == null) {
@@ -190,7 +189,6 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
     }
 
     DatasetDescriptor updatedDescriptor = metadataProvider.update(name, descriptor);
-    updatedDescriptor = addRepositoryUri(updatedDescriptor);
 
     LOG.debug("Updated dataset:{} schema:{} datasetPath:{}", new Object[] {
         name, updatedDescriptor.getSchema(),
@@ -215,7 +213,6 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
     LOG.debug("Loading dataset:{}", name);
 
     DatasetDescriptor descriptor = metadataProvider.load(name);
-    descriptor = addRepositoryUri(descriptor);
 
     FileSystemDataset<E> ds = new FileSystemDataset.Builder()
         .name(name)
@@ -242,7 +239,6 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
     DatasetDescriptor descriptor;
     try {
       descriptor = metadataProvider.load(name);
-      descriptor = addRepositoryUri(descriptor);
     } catch (DatasetNotFoundException ex) {
       return false;
     }

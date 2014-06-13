@@ -62,7 +62,6 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository implements
     Preconditions.checkNotNull(descriptor, "Descriptor cannot be null");
 
     DatasetDescriptor newDescriptor = metadataProvider.create(name, descriptor);
-    newDescriptor = addRepositoryUri(newDescriptor);
     return newDataset(name, newDescriptor);
   }
 
@@ -72,7 +71,6 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository implements
     Preconditions.checkNotNull(descriptor, "Descriptor cannot be null");
 
     DatasetDescriptor newDescriptor = metadataProvider.update(name, descriptor);
-    newDescriptor = addRepositoryUri(newDescriptor);
     return newDataset(name, newDescriptor);
   }
 
@@ -86,13 +84,11 @@ public class HBaseDatasetRepository extends AbstractDatasetRepository implements
       List<DatasetDescriptor> descriptors = new ArrayList<DatasetDescriptor>();
       for (String subEntityName : entityName.split("\\.")) {
         DatasetDescriptor descriptor = metadataProvider.load(tableName + "." + subEntityName);
-        descriptor = addRepositoryUri(descriptor);
         descriptors.add(descriptor);
       }
       return newCompositeDataset(name, tableName, descriptors);
     } else {
       DatasetDescriptor descriptor = metadataProvider.load(name);
-      descriptor = addRepositoryUri(descriptor);
       return newDataset(name, descriptor);
     }
   }
