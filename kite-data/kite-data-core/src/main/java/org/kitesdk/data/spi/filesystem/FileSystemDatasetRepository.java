@@ -517,7 +517,7 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository
       }
     } else {
       try {
-        return new URI(storage.getScheme(), storage.getAuthority(),
+        return new URI("dataset:" + storage.getScheme(), storage.getAuthority(),
             storage.getPath() + "/" + name, storage.getQuery(),
             storage.getFragment());
       } catch (URISyntaxException e) {
