@@ -174,7 +174,7 @@ public class DatasetKeyInputFormat<E> extends InputFormat<E, Void>
   }
 
   private static <E> View<E> load(Configuration conf) {
-    return Datasets.<E, View<E>>view(conf.get(KITE_INPUT_URI));
+    return Datasets.<E, View<E>>load(conf.get(KITE_INPUT_URI));
   }
 
   @Override

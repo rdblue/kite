@@ -292,7 +292,7 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
 
   private static <E> View<E> load(JobContext jobContext) {
     Configuration conf = Hadoop.JobContext.getConfiguration.invoke(jobContext);
-    return Datasets.<E, View<E>>view(conf.get(KITE_OUTPUT_URI));
+    return Datasets.<E, View<E>>load(conf.get(KITE_OUTPUT_URI));
   }
 
   private static <E> Dataset<E> createJobDataset(JobContext jobContext) {
