@@ -20,6 +20,7 @@ import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetException;
 import org.kitesdk.data.DatasetIOException;
 import org.kitesdk.data.DatasetNotFoundException;
+import org.kitesdk.data.DatasetRepository;
 import org.kitesdk.data.DatasetRepositoryException;
 import org.kitesdk.data.spi.FieldPartitioner;
 import org.kitesdk.data.IncompatibleSchemaException;
@@ -44,6 +45,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.kitesdk.data.spi.SchemaUtil;
+import org.kitesdk.data.spi.TemporaryRepositoryAccessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,7 +88,8 @@ import org.slf4j.LoggerFactory;
  * @see org.kitesdk.data.PartitionStrategy
  * @see org.kitesdk.data.spi.MetadataProvider
  */
-public class FileSystemDatasetRepository extends AbstractDatasetRepository {
+public class FileSystemDatasetRepository extends AbstractDatasetRepository
+    implements TemporaryRepositoryAccessor {
 
   private static final Logger LOG = LoggerFactory
     .getLogger(FileSystemDatasetRepository.class);
@@ -286,6 +289,11 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
   @Override
   public URI getUri() {
     return URI.create("repo:" + storage.toUri());
+  }
+
+  @Override
+  public DatasetRepository getTemporaryRepository(String key) {
+    return new TemporaryRepository(conf, storage, key);
   }
 
   private Path pathForDataset(String name) {
@@ -496,13 +504,25 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository {
   }
 
   private static URI makeDatasetUri(URI repoUri, String name) {
-    String storage = (repoUri == null ? "" : repoUri.getRawSchemeSpecificPart());
-    int queryStart = storage.indexOf('?');
-    if (queryStart < 0) {
-      return URI.create("dataset:" + storage + "/" + name);
+    URI storage = URI.create(repoUri == null ? "" : repoUri.getRawSchemeSpecificPart());
+    if (storage.isOpaque() || storage.getPath().isEmpty()) {
+      // add the dataset name as a query argument
+      String storageStr = storage.toString();
+      int queryStart = storageStr.indexOf('?');
+      if (queryStart < 0) {
+        return URI.create("dataset:" + storageStr + "?dataset=" + name);
+      } else {
+        return URI.create("dataset:" + storageStr.substring(0, queryStart+1) +
+            "dataset=" + name + "&");
+      }
     } else {
-      return URI.create("dataset:" + storage.substring(0, queryStart) +
-          "/" + name + storage.substring(queryStart));
+      try {
+        return new URI(storage.getScheme(), storage.getAuthority(),
+            storage.getPath() + "/" + name, storage.getQuery(),
+            storage.getFragment());
+      } catch (URISyntaxException e) {
+        throw new DatasetRepositoryException("Cannot make dataset URI", e);
+      }
     }
   }
 }

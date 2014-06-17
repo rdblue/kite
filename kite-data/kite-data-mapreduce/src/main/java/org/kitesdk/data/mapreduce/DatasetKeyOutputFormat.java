@@ -40,6 +40,8 @@ import org.kitesdk.data.spi.AbstractDataset;
 import org.kitesdk.data.spi.AbstractRefinableView;
 import org.kitesdk.data.spi.Constraints;
 import org.kitesdk.data.spi.Mergeable;
+import org.kitesdk.data.spi.TemporaryDatasetRepository;
+import org.kitesdk.data.spi.TemporaryRepositoryAccessor;
 import org.kitesdk.data.spi.filesystem.FileSystemDataset;
 
 /**
@@ -160,10 +162,19 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
     @Override
     @SuppressWarnings("unchecked")
     public void commitJob(JobContext jobContext) throws IOException {
+      DatasetRepository repo = getDatasetRepository(jobContext);
+      boolean isTemp = repo instanceof TemporaryDatasetRepository;
+
+      String jobDatasetName = getJobDatasetName(jobContext);
       View<E> targetView = load(jobContext);
-      Dataset<E> jobDataset = loadJobDataset(jobContext);
+      Dataset<E> jobDataset = repo.load(jobDatasetName);
       ((Mergeable<Dataset<E>>) targetView.getDataset()).merge(jobDataset);
-      deleteJobDataset(jobContext);
+
+      if (isTemp) {
+        ((TemporaryDatasetRepository) repo).delete();
+      } else {
+        repo.delete(jobDatasetName);
+      }
     }
 
     @Override
@@ -184,11 +195,17 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
     @Override
     @SuppressWarnings("unchecked")
     public void commitTask(TaskAttemptContext taskContext) throws IOException {
-      Dataset<E> taskAttemptDataset = loadTaskAttemptDataset(taskContext);
-      if (taskAttemptDataset != null) {
-        Dataset<E> jobDataset = loadJobDataset(taskContext);
+      DatasetRepository repo = getDatasetRepository(taskContext);
+      boolean inTempRepo = repo instanceof TemporaryDatasetRepository;
+
+      Dataset<E> jobDataset = repo.load(getJobDatasetName(taskContext));
+      String taskAttemptDatasetName = getTaskAttemptDatasetName(taskContext);
+      if (repo.exists(taskAttemptDatasetName)) {
+        Dataset<E> taskAttemptDataset = repo.load(taskAttemptDatasetName);
         ((Mergeable<Dataset<E>>) jobDataset).merge(taskAttemptDataset);
-        deleteTaskAttemptDataset(taskContext);
+        if (!inTempRepo) {
+          repo.delete(taskAttemptDatasetName);
+        }
       }
     }
 
@@ -257,7 +274,12 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
 
   private static DatasetRepository getDatasetRepository(JobContext jobContext) {
     Configuration conf = Hadoop.JobContext.getConfiguration.invoke(jobContext);
-    return Datasets.repositoryFor(conf.get(KITE_OUTPUT_URI));
+    DatasetRepository repo = Datasets.repositoryFor(conf.get(KITE_OUTPUT_URI));
+    if (repo instanceof TemporaryRepositoryAccessor) {
+      repo = ((TemporaryRepositoryAccessor) repo).getTemporaryRepository(
+          jobContext.getJobID().toString());
+    }
+    return repo;
   }
 
   private static String getJobDatasetName(JobContext jobContext) {
@@ -299,15 +321,6 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
     } else {
       return repo.create(taskAttemptDatasetName, copy(jobDataset.getDescriptor()));
     }
-  }
-
-  private static <E> Dataset<E> loadTaskAttemptDataset(TaskAttemptContext taskContext) {
-    DatasetRepository repo = getDatasetRepository(taskContext);
-    String taskAttemptDatasetName = getTaskAttemptDatasetName(taskContext);
-    if (repo.exists(taskAttemptDatasetName)) {
-      return repo.load(taskAttemptDatasetName);
-    }
-    return null;
   }
 
   private static void deleteTaskAttemptDataset(TaskAttemptContext taskContext) {
