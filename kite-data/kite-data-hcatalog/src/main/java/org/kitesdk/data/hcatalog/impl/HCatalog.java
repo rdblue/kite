@@ -15,6 +15,7 @@
  */
 package org.kitesdk.data.hcatalog.impl;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
@@ -37,6 +38,8 @@ import org.slf4j.LoggerFactory;
 public final class HCatalog {
 
   private static final Logger LOG = LoggerFactory.getLogger(HCatalog.class);
+
+  private static final String ALLOW_LOCAL_METASTORE = "kite.allow.test-metastore";
 
   private final HiveMetaStoreClient client;
   private final HiveConf hiveConf;
@@ -67,11 +70,12 @@ public final class HCatalog {
   }
 
   public HCatalog(Configuration conf) {
-    if (conf.get(Loader.HIVE_METASTORE_URI_PROP) == null) {
-      LOG.warn("Using a local Hive MetaStore (for testing only)");
-    }
+    this.hiveConf = new HiveConf(conf, HiveConf.class);
+    Preconditions.checkState(
+        hiveConf.getBoolean(ALLOW_LOCAL_METASTORE, false) ||
+        hiveConf.get(Loader.HIVE_METASTORE_URI_PROP) != null,
+        "Missing Hive MetaStore connection URI");
     try {
-      hiveConf = new HiveConf(conf, HiveConf.class);
       client = new HiveMetaStoreClient(hiveConf);
     } catch (TException e) {
       throw new DatasetRepositoryException("Hive metastore exception", e);
