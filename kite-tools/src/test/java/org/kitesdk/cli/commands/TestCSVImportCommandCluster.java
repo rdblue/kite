@@ -113,7 +113,7 @@ public class TestCSVImportCommandCluster extends MiniDFSTest {
     command.run();
     Assert.assertEquals("Should contain expected records",
         expected, DatasetTestUtilities.materialize(dataset));
-    verify(console).info("Added {} records to dataset \"{}\"", 2, datasetName);
+    verify(console).info("Added {} records to dataset \"{}\"", 2l, datasetName);
     verifyNoMoreInteractions(console);
   }
 
@@ -125,7 +125,7 @@ public class TestCSVImportCommandCluster extends MiniDFSTest {
     command.run();
     Assert.assertEquals("Should contain expected records",
         expected, DatasetTestUtilities.materialize(dataset));
-    verify(console).info("Added {} records to dataset \"{}\"", 2, datasetName);
+    verify(console).info("Added {} records to dataset \"{}\"", 2l, datasetName);
     verifyNoMoreInteractions(console);
   }
 
@@ -148,7 +148,7 @@ public class TestCSVImportCommandCluster extends MiniDFSTest {
     command.run();
     Assert.assertEquals("Should contain expected records",
         expected, DatasetTestUtilities.materialize(dataset));
-    verify(console).info("Added {} records to dataset \"{}\"", 2, datasetName);
+    verify(console).info("Added {} records to dataset \"{}\"", 2l, datasetName);
     verifyNoMoreInteractions(console);
   }
 
@@ -175,7 +175,7 @@ public class TestCSVImportCommandCluster extends MiniDFSTest {
     command.run();
     Assert.assertEquals("Should contain expected records",
         expected, DatasetTestUtilities.materialize(dataset));
-    verify(console).info("Added {} records to dataset \"{}\"", 2, datasetName);
+    verify(console).info("Added {} records to dataset \"{}\"", 2l, datasetName);
     verifyNoMoreInteractions(console);
   }
 

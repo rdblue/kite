@@ -23,10 +23,13 @@ import com.google.common.collect.Lists;
 import com.google.common.io.Closeables;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.crunch.PipelineResult;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.kitesdk.data.Dataset;
@@ -41,6 +44,7 @@ import org.kitesdk.data.spi.filesystem.CSVProperties;
 import org.kitesdk.data.spi.filesystem.CSVUtil;
 import org.kitesdk.data.spi.filesystem.FileSystemDataset;
 import org.kitesdk.data.spi.filesystem.SchemaValidationUtil;
+import org.kitesdk.tools.CopyTask;
 import org.slf4j.Logger;
 
 @Parameters(commandDescription="Copy CSV records into a Dataset")
@@ -92,15 +96,17 @@ public class CSVImportCommand extends BaseDatasetCommand {
 
     String dataset = targets.get(1);
 
-    View<Object> target = load(dataset);
+    View<GenericData.Record> target = load(dataset);
     Schema datasetSchema = target.getDataset().getDescriptor().getSchema();
 
     // TODO: replace this with a temporary Dataset from a FS repo
     // TODO: CDK-92: always use GenericRecord?
 
-    FileSystemDataset<Object> csvSourceAsDataset = new FileSystemDataset.Builder()
+    FileSystemDataset<GenericData.Record> csvSourceAsDataset =
+        new FileSystemDataset.Builder()
         .name("temporary")
         .configuration(getConf())
+        .uri(URI.create("dataset:" + source.toUri() + "?format=csv"))
         .descriptor(props.addToDescriptor(new DatasetDescriptor.Builder()
             .location(source.toUri())
             .schema(ColumnMappingParser.removeEmbeddedMapping(
@@ -124,37 +130,22 @@ public class CSVImportCommand extends BaseDatasetCommand {
         "Incompatible schema field order\nCSV: %s\nDataset: %s",
         csvSchema.toString(true), datasetSchema.toString(true));
 
-    int count = 0;
-    boolean threw = true;
-    DatasetReader<Object> reader = csvSourceAsDataset.newReader();
-    DatasetWriter<Object> writer = target.newWriter();
+    CopyTask<GenericData.Record> copy = new CopyTask<GenericData.Record>(
+        csvSourceAsDataset, target, GenericData.Record.class);
+    copy.setConf(getConf());
+    copy.runLocally();
 
-    try {
-      reader.open();
-      writer.open();
-      for (Object record : reader) {
-        writer.write(record);
-        count += 1;
+    PipelineResult result = copy.run();
+
+    if (result.succeeded()) {
+      long count = copy.getCount();
+      if (count > 0) {
+        console.info("Added {} records to dataset \"{}\"", count, dataset);
       }
-
-      threw = false;
-
-    } finally {
-      boolean readerThrew = true;
-      try {
-        Closeables.close(reader, threw);
-        readerThrew = false;
-      } finally {
-        Closeables.close(writer, threw || readerThrew);
-      }
+      return 0;
+    } else {
+      return 1;
     }
-
-    if (count > 0) {
-      console.info("Added {} records to dataset \"{}\"", count, dataset);
-    }
-
-    // in the future use: Jobs.copy(conf, csvSourceAsDataset, target) ? 0 : 1;
-    return 0;
   }
 
   @Override
