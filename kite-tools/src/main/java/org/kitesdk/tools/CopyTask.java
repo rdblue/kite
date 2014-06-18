@@ -46,6 +46,7 @@ public class CopyTask<E> extends Configured {
       runInParallel = false;
     }
 
+    // TODO: Add reduce phase and allow control over the number of reducers
     Pipeline pipeline = runInParallel ?
         new MRPipeline(getClass(), getConf()) : MemPipeline.getInstance();
 

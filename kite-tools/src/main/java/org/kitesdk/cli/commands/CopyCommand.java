@@ -18,7 +18,6 @@ package org.kitesdk.cli.commands;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import com.facebook.fb303.FacebookService;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import java.io.File;
@@ -29,18 +28,12 @@ import java.security.CodeSource;
 import java.security.PrivilegedAction;
 import java.security.ProtectionDomain;
 import java.util.List;
-import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.mapreduce.AvroKeyInputFormat;
 import org.apache.crunch.util.DistCache;
 import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
-import org.apache.hadoop.hive.thrift.TUGIContainingTransport;
-import org.apache.thrift.TException;
-import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetException;
-import org.kitesdk.data.DatasetRepository;
-import org.kitesdk.data.hcatalog.HCatalogDatasetRepository;
+import org.kitesdk.data.View;
 import org.kitesdk.tools.CopyTask;
 import org.slf4j.Logger;
 
@@ -56,22 +49,17 @@ public class CopyCommand extends BaseDatasetCommand {
 
   @Override
   public int run() throws IOException {
-    Preconditions.checkArgument(datasets != null && !datasets.isEmpty(),
-        "Dataset names are required");
+    Preconditions.checkArgument(datasets != null && datasets.size() > 1,
+        "Source and target datasets are required");
     Preconditions.checkArgument(datasets.size() == 2,
         "Cannot copy multiple datasets");
 
-    DatasetRepository repo = getDatasetRepository();
-    Dataset<GenericData.Record> source = repo.load(datasets.get(0));
-    Dataset<GenericData.Record> dest = repo.load(datasets.get(1));
+    View<GenericData.Record> source = load(datasets.get(0));
+    View<GenericData.Record> dest = load(datasets.get(1));
 
     Class[] classes = new Class<?>[]{
-        HiveConf.class,               // hive-exec
-//        NoSuchObjectException.class,  // hive-metastore
-  //      TException.class,             // thrift (for Hive)
-    //    TUGIContainingTransport.class,
-      //  FacebookService.class,        // fb303 (for Hive)
-        AvroKeyInputFormat.class      // avro-mapred
+        HiveConf.class,           // hive-* and dependencies
+        AvroKeyInputFormat.class  // avro-mapred
     };
     for (Class<?> requiredClass : classes) {
       ProtectionDomain domain = AccessController.doPrivileged(
@@ -86,6 +74,7 @@ public class CopyCommand extends BaseDatasetCommand {
               "Cannot locate " + requiredClass.getName() + " jar", e);
         }
       } else {
+        // this should only happen for system classes
         throw new DatasetException(
             "Cannot locate " + requiredClass.getName() + " jar");
       }
