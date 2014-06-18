@@ -505,7 +505,8 @@ public class FileSystemDatasetRepository extends AbstractDatasetRepository
 
   private static URI makeDatasetUri(URI repoUri, String name) {
     URI storage = URI.create(repoUri == null ? "" : repoUri.getRawSchemeSpecificPart());
-    if (storage.isOpaque() || storage.getPath().isEmpty()) {
+    if (storage.getScheme() == null ||
+        storage.isOpaque() || storage.getPath().isEmpty()) {
       // add the dataset name as a query argument
       String storageStr = storage.toString();
       int queryStart = storageStr.indexOf('?');
