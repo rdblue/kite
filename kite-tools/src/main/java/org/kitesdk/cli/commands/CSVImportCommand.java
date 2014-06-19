@@ -20,23 +20,17 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.common.io.Closeables;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.crunch.PipelineResult;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
-import org.kitesdk.data.DatasetReader;
-import org.kitesdk.data.DatasetRepository;
-import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.View;
 import org.kitesdk.data.spi.ColumnMappingParser;
 import org.kitesdk.data.spi.PartitionStrategyParser;
@@ -44,6 +38,7 @@ import org.kitesdk.data.spi.filesystem.CSVProperties;
 import org.kitesdk.data.spi.filesystem.CSVUtil;
 import org.kitesdk.data.spi.filesystem.FileSystemDataset;
 import org.kitesdk.data.spi.filesystem.SchemaValidationUtil;
+import org.kitesdk.data.spi.filesystem.TemporaryRepository;
 import org.kitesdk.tools.CopyTask;
 import org.slf4j.Logger;
 
@@ -76,6 +71,7 @@ public class CSVImportCommand extends BaseDatasetCommand {
   String charsetName = Charset.defaultCharset().displayName();
 
   @Override
+  @SuppressWarnings("unchecked")
   public int run() throws IOException {
     Preconditions.checkArgument(targets != null && targets.size() == 2,
         "CSV path and target dataset name are required.");
@@ -102,49 +98,55 @@ public class CSVImportCommand extends BaseDatasetCommand {
     // TODO: replace this with a temporary Dataset from a FS repo
     // TODO: CDK-92: always use GenericRecord?
 
-    FileSystemDataset<GenericData.Record> csvSourceAsDataset =
-        new FileSystemDataset.Builder()
-        .name("temporary")
-        .configuration(getConf())
-        .uri(URI.create("dataset:" + source.toUri() + "?format=csv"))
-        .descriptor(props.addToDescriptor(new DatasetDescriptor.Builder()
-            .location(source.toUri())
-            .schema(ColumnMappingParser.removeEmbeddedMapping(
-                PartitionStrategyParser.removeEmbeddedStrategy(datasetSchema)))
-            .format("csv")
-            .build()))
+    DatasetDescriptor csvDescriptor = new DatasetDescriptor.Builder()
+        .location(source.toUri())
+        .schema(ColumnMappingParser.removeEmbeddedMapping(
+            PartitionStrategyParser.removeEmbeddedStrategy(datasetSchema)))
+        .format("csv")
         .build();
+    csvDescriptor = props.addToDescriptor(csvDescriptor);
 
-    Iterator<Path> iter = csvSourceAsDataset.pathIterator().iterator();
-    Preconditions.checkArgument(iter.hasNext(),
-        "CSV path has no data files: " + source);
-    Schema csvSchema = CSVUtil.inferSchema(
-        datasetSchema.getFullName(), sourceFS.open(iter.next()), props);
+    TemporaryRepository repo = new TemporaryRepository(getConf(),
+        sourceFS.makeQualified(new Path("/tmp")), // use the same FS as source
+        UUID.randomUUID().toString());
 
-    Preconditions.checkArgument(
-        SchemaValidationUtil.canRead(csvSchema, datasetSchema),
-        "Incompatible schemas\nCSV: %s\nDataset: %s",
-        csvSchema.toString(true), datasetSchema.toString(true));
-    // TODO: add support for orderByHeaders
-    Preconditions.checkArgument(verifyFieldOrder(csvSchema, datasetSchema),
-        "Incompatible schema field order\nCSV: %s\nDataset: %s",
-        csvSchema.toString(true), datasetSchema.toString(true));
+    try {
+      FileSystemDataset<GenericData.Record> csvDataset =
+          (FileSystemDataset) repo.create("csv", csvDescriptor);
 
-    CopyTask<GenericData.Record> copy = new CopyTask<GenericData.Record>(
-        csvSourceAsDataset, target, GenericData.Record.class);
-    copy.setConf(getConf());
-    copy.runLocally();
+      Iterator<Path> iter = csvDataset.pathIterator().iterator();
+      Preconditions.checkArgument(iter.hasNext(),
+          "CSV path has no data files: " + source);
+      Schema csvSchema = CSVUtil.inferSchema(
+          datasetSchema.getFullName(), sourceFS.open(iter.next()), props);
 
-    PipelineResult result = copy.run();
+      Preconditions.checkArgument(
+          SchemaValidationUtil.canRead(csvSchema, datasetSchema),
+          "Incompatible schemas\nCSV: %s\nDataset: %s",
+          csvSchema.toString(true), datasetSchema.toString(true));
+      // TODO: add support for orderByHeaders
+      Preconditions.checkArgument(verifyFieldOrder(csvSchema, datasetSchema),
+          "Incompatible schema field order\nCSV: %s\nDataset: %s",
+          csvSchema.toString(true), datasetSchema.toString(true));
 
-    if (result.succeeded()) {
-      long count = copy.getCount();
-      if (count > 0) {
-        console.info("Added {} records to dataset \"{}\"", count, dataset);
+      CopyTask<GenericData.Record> copy = new CopyTask<GenericData.Record>(
+          csvDataset, target, GenericData.Record.class);
+      copy.setConf(getConf());
+
+      PipelineResult result = copy.run();
+
+      if (result.succeeded()) {
+        long count = copy.getCount();
+        if (count > 0) {
+          console.info("Added {} records to \"{}\"", count, dataset);
+        }
+        return 0;
+      } else {
+        return 1;
       }
-      return 0;
-    } else {
-      return 1;
+    } finally {
+      // clean up the temporary repository
+      repo.delete();
     }
   }
 

@@ -30,6 +30,7 @@ import java.security.ProtectionDomain;
 import java.util.List;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.mapreduce.AvroKeyInputFormat;
+import org.apache.crunch.PipelineResult;
 import org.apache.crunch.util.DistCache;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.kitesdk.data.DatasetException;
@@ -85,7 +86,14 @@ public class CopyCommand extends BaseDatasetCommand {
         source, dest, GenericData.Record.class);
     task.setConf(getConf());
 
-    return task.run().succeeded() ? 0 : 1;
+    PipelineResult result = task.run();
+
+    if (result.succeeded()) {
+      console.info("Added {} records to \"{}\"", task.getCount(), dest);
+      return 0;
+    } else {
+      return 1;
+    }
   }
 
   /**

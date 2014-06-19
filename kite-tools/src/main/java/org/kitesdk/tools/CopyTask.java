@@ -39,7 +39,6 @@ public class CopyTask<E> extends Configured {
   private final View<E> to;
   private final Class<E> entityClass;
   private long count = 0;
-  private boolean runLocally = false;
 
   public CopyTask(View<E> from, View<E> to, Class<E> entityClass) {
     this.from = from;
@@ -47,21 +46,32 @@ public class CopyTask<E> extends Configured {
     this.entityClass = entityClass;
   }
 
-  public void runLocally() {
-    this.runLocally = true;
-  }
-
   public long getCount() {
     return count;
   }
 
   public PipelineResult run() throws IOException {
-    boolean canRunInParallel = true;
+    boolean runInParallel = true;
     if (isLocal(from.getDataset()) || isLocal(to.getDataset())) {
-      canRunInParallel = false;
+      runInParallel = false;
     }
 
-    if (runLocally || !canRunInParallel) {
+    if (runInParallel) {
+      // TODO: Add reduce phase and allow control over the number of reducers
+      Pipeline pipeline = new MRPipeline(getClass(), getConf());
+
+      // TODO: add transforms
+      PCollection<E> collection = pipeline.read(
+          CrunchDatasets.asSource(from, entityClass));
+      PObject<Long> size = collection.length();
+      pipeline.write(collection, CrunchDatasets.asTarget(to));
+
+      PipelineResult result = pipeline.done();
+      this.count = size.getValue();
+
+      return result;
+
+    } else {
       Pipeline pipeline = MemPipeline.getInstance();
 
       // TODO: add transforms
@@ -82,17 +92,6 @@ public class CopyTask<E> extends Configured {
       } finally {
         Closeables.close(writer, threw);
       }
-
-      return pipeline.done();
-
-    } else {
-      // TODO: Add reduce phase and allow control over the number of reducers
-      Pipeline pipeline = new MRPipeline(getClass(), getConf());
-
-      // TODO: add transforms
-      PCollection<E> collection = pipeline.read(
-          CrunchDatasets.asSource(from, entityClass));
-      pipeline.write(collection, CrunchDatasets.asTarget(to));
 
       return pipeline.done();
     }
