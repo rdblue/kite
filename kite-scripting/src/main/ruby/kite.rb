@@ -46,6 +46,7 @@ module Kite
   end
   alias_method :map, :parallel
   alias_method :extract, :parallel
+  alias_method :transform, :parallel
 
   def reduce( name, options={}, &block )
     return add_carrier( :reduce, name, &block )

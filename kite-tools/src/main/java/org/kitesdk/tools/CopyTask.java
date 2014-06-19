@@ -77,6 +77,7 @@ public class CopyTask<E> extends Configured {
   private int numWriters = -1;
 
   private long count = 0;
+  private DoFn<E, E> transform;
 
   public CopyTask(View<E> from, View<E> to, Class<E> entityClass) {
     this.from = from;
@@ -105,6 +106,10 @@ public class CopyTask<E> extends Configured {
     return this;
   }
 
+  public void setTransform(DoFn<E, E> transform) {
+    this.transform = transform;
+  }
+
   public PipelineResult run() throws IOException {
     boolean runInParallel = true;
     if (isLocal(from.getDataset()) || isLocal(to.getDataset())) {
@@ -118,9 +123,12 @@ public class CopyTask<E> extends Configured {
 
       Pipeline pipeline = new MRPipeline(getClass(), getConf());
 
-      // TODO: add transforms
       PCollection<E> collection = pipeline.read(
           CrunchDatasets.asSource(from, entityClass));
+
+      if (transform != null) {
+        collection = collection.parallelDo(transform, collection.getPType());
+      }
 
       if (compact) {
         collection = partition(collection,
@@ -141,9 +149,12 @@ public class CopyTask<E> extends Configured {
     } else {
       Pipeline pipeline = MemPipeline.getInstance();
 
-      // TODO: add transforms
       PCollection<E> collection = pipeline.read(
           CrunchDatasets.asSource(from, entityClass));
+
+      if (transform != null) {
+        collection = collection.parallelDo(transform, collection.getPType());
+      }
 
       boolean threw = true;
       DatasetWriter<E> writer = to.newWriter();

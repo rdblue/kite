@@ -175,18 +175,24 @@ public class Script implements Serializable, Configurable {
 
   public <T> StageResult<T> addCarrier(Carrier<T> infected) {
     Preconditions.checkNotNull(infected, "Carrier is required");
-    Preconditions.checkNotNull(lastCollection, "Read must be called first");
 
-    if (infected.type() == Carrier.Type.COMBINE) {
-      return addCarrierAsCombiner(infected);
+    carriers().put(infected.name(), infected);
+
+    if (lastCollection != null) {
+      if (infected.type() == Carrier.Type.COMBINE) {
+        return addCarrierAsCombiner(infected);
+      } else {
+        return addCarrierAsStage(infected);
+      }
     } else {
-      return addCarrierAsStage(infected);
+      // if the last collection is null, then this won't process anything, but
+      // may be used via getCarrier(String)
+      return null;
     }
   }
 
   private <T> StageResult<T> addCarrierAsStage(Carrier<T> infected) {
     String stageName = infected.name();
-    carriers().put(stageName, infected);
 
     addLastStagePaired((infected.type() == Carrier.Type.REDUCE) ||
         (infected.arity() == 2));

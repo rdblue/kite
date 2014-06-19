@@ -20,11 +20,19 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.List;
 import org.apache.avro.generic.GenericData;
 import org.apache.crunch.PipelineResult;
+import org.apache.crunch.util.DistCache;
+import org.kitesdk.compat.DynMethods;
 import org.kitesdk.data.View;
+import org.kitesdk.scripting.Carrier;
+import org.kitesdk.scripting.Script;
+import org.kitesdk.scripting.stages.FromCollection;
 import org.kitesdk.tools.CopyTask;
 import org.slf4j.Logger;
 
@@ -46,6 +54,18 @@ public class CopyCommand extends BaseDatasetCommand {
       description="The number of writer processes to use")
   int numWriters = -1;
 
+  @Parameter(names={"--script"},
+      description="A transform script file")
+  String script = null;
+
+  @Parameter(names={"--transform"},
+      description="A transform function name")
+  String transform = null;
+
+  @Parameter(names="--jar",
+      description="Add a jar to the runtime classpath")
+  List<String> jars;
+
   @Override
   public int run() throws IOException {
     Preconditions.checkArgument(datasets != null && datasets.size() > 1,
@@ -56,7 +76,9 @@ public class CopyCommand extends BaseDatasetCommand {
     View<GenericData.Record> source = load(datasets.get(0));
     View<GenericData.Record> dest = load(datasets.get(1));
 
-    CopyTask task = new CopyTask<GenericData.Record>(
+    addJars(jars);
+
+    CopyTask<GenericData.Record> task = new CopyTask<GenericData.Record>(
         source, dest, GenericData.Record.class);
     task.setConf(getConf());
 
@@ -66,6 +88,14 @@ public class CopyCommand extends BaseDatasetCommand {
 
     if (numWriters >= 0) {
       task.setNumWriters(numWriters);
+    }
+
+    if (script != null && transform != null) {
+      Script transforms = Script.get(script, open(script));
+      Carrier<GenericData.Record> function = transforms.getCarrier(transform);
+      task.setTransform(
+          new FromCollection<GenericData.Record, GenericData.Record>(
+              transform, transforms, function));
     }
 
     PipelineResult result = task.run();
@@ -87,5 +117,22 @@ public class CopyCommand extends BaseDatasetCommand {
         "# Copy the movies dataset into HBase in a map-only job",
         "movies dataset:hbase:zk-host/movies --no-compaction"
     );
+  }
+
+  private static final DynMethods.UnboundMethod addJarURL =
+      new DynMethods.Builder("addURL")
+          .hiddenImpl(URLClassLoader.class, URL.class)
+          .build();
+
+  private void addJars(List<String> jars) throws IOException {
+    if (jars != null && !jars.isEmpty()) {
+      DynMethods.BoundMethod addJar = addJarURL.bind(getClass().getClassLoader());
+      for (String jar : jars) {
+        File jarFile = new File(jar);
+        DistCache.addJarToDistributedCache(getConf(), jarFile);
+        // add to the current loader
+        addJar.invoke(jarFile.toURI().toURL());
+      }
+    }
   }
 }
