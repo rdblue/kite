@@ -29,7 +29,7 @@ import org.apache.crunch.impl.mem.MemPipeline;
 import org.apache.crunch.impl.mr.MRPipeline;
 import org.apache.crunch.util.DistCache;
 import org.kitesdk.compat.DynMethods;
-import org.kitesdk.lang.Script;
+import org.kitesdk.scripting.Script;
 import org.slf4j.Logger;
 
 @Parameters(commandDescription="Run a script on a dataset")

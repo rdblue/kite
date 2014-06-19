@@ -32,17 +32,6 @@
   </description>
 
   <build>
-   <resources>
-     <resource>
-       <directory>src/main/resources</directory>
-     </resource>
-     <resource>
-       <directory>src/main/ruby</directory>
-     </resource>
-     <resource>
-       <directory>src/main/python</directory>
-     </resource>
-   </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -122,6 +111,7 @@
                   <include>com.twitter:parquet-hive-bundle</include>
                   <include>org.kitesdk:kite-data-mapreduce</include>
                   <include>org.kitesdk:kite-data-crunch</include>
+                  <include>org.kitesdk:kite-scripting</include>
                   <include>org.kitesdk:kite-hadoop-compatibility</include>
                   <include>com.beust:jcommander</include>
                   <include>org.slf4j:slf4j-api</include>
@@ -269,6 +259,12 @@
     <dependency>
       <groupId>org.kitesdk</groupId>
       <artifactId>kite-data-crunch</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.kitesdk</groupId>
+      <artifactId>kite-scripting</artifactId>
       <version>${project.version}</version>
     </dependency>
 
