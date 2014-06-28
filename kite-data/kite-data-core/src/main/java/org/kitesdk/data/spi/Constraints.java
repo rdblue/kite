@@ -83,6 +83,13 @@ public class Constraints implements Serializable{
   }
 
   private Constraints(Schema schema, PartitionStrategy strategy,
+                      Map<String, Predicate> constraints) {
+    this.schema = schema;
+    this.strategy = strategy;
+    this.constraints = constraints;
+  }
+
+  private Constraints(Schema schema, PartitionStrategy strategy,
                       Map<String, Predicate> constraints,
                       String name, Predicate predicate) {
     this.schema = schema;
@@ -90,6 +97,14 @@ public class Constraints implements Serializable{
     Map<String, Predicate> copy = Maps.newHashMap(constraints);
     copy.put(name, predicate);
     this.constraints = ImmutableMap.copyOf(copy);
+  }
+
+  @VisibleForTesting
+  Constraints with(PartitionStrategy strategy) {
+    Preconditions.checkArgument(this.strategy == null,
+        "Cannot add partition strategy");
+    // if replacing a non-null strategy, re-check compatibility
+    return new Constraints(schema, strategy, constraints);
   }
 
   /**
@@ -185,15 +200,14 @@ public class Constraints implements Serializable{
 
   /**
    * Get a set of {@link MarkerRange} objects that covers the set of possible
-   * {@link StorageKey} partitions for this constraint set, with respect to the
-   * give {@link PartitionStrategy}. If a {@code StorageKey} is not in one of
-   * the ranges returned by this method, then its partition cannot contain
-   * entities that satisfy this constraint set.
+   * {@link StorageKey} partitions for this constraint set. If a
+   * {@code StorageKey} is not in one of the ranges returned by this method,
+   * then its partition cannot contain entities that satisfy this constraint
+   * set.
    *
-   * @param strategy a PartitionStrategy
    * @return an Iterable of MarkerRange
    */
-  public Iterable<MarkerRange> toKeyRanges(PartitionStrategy strategy) {
+  public Iterable<MarkerRange> toKeyRanges() {
     return new KeyRangeIterable(strategy, constraints);
   }
 
@@ -460,20 +474,19 @@ public class Constraints implements Serializable{
   }
 
   @SuppressWarnings("unchecked")
-  private static Predicate combine(Predicate previous, Range additional) {
-    if (previous instanceof Range) {
-      // return the intersection
-      return ((Range) previous).intersection(additional);
-    } else if (previous instanceof Predicates.In) {
-      // filter the set using the range
-      return ((Predicates.In) previous).filter(additional);
-    } else if (previous instanceof Predicates.Exists) {
-      // exists is the weakest constraint, satisfied by any existing constraint
-      // all values in the range are non-null
-      return additional;
+  static Predicate combine(Predicate left, Predicate right) {
+    if (left == null || left instanceof Predicates.Exists) {
+      return right == null ? left : right;
+    } else if (right == null || right instanceof Predicates.Exists) {
+      return left; // must be non-null, which satisfies exists
+    } else if (left instanceof Predicates.In) {
+      return ((Predicates.In) left).filter(right);
+    } else if (right instanceof Predicates.In) {
+      return ((Predicates.In) right).filter(left);
+    } else if (left instanceof Range && right instanceof Range) {
+      return ((Range) left).intersection((Range) right);
     } else {
-      // previous must be null, return the new constraint
-      return additional;
+      return and(left, right);
     }
   }
 
@@ -687,7 +700,7 @@ public class Constraints implements Serializable{
    * @param <S> The type of input to this predicate
    * @param <T> The type of input to the wrapped predicate.
    */
-  private static class TransformPredicate<S, T> implements Predicate<S> {
+  static class TransformPredicate<S, T> implements Predicate<S> {
     private final Function<S, T> function;
     private final Predicate<T> predicate;
 

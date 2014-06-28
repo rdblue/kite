@@ -19,15 +19,20 @@ package org.kitesdk.data.spi;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
+import com.google.common.collect.Sets;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import javax.annotation.Nullable;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.spi.partition.CalendarFieldPartitioner;
@@ -47,26 +52,28 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
   @SuppressWarnings("unchecked")
   public Iterator<MarkerRange> iterator() {
     // this should be part of PartitionStrategy
-    final LinkedListMultimap<String, FieldPartitioner> partitioners =
-        LinkedListMultimap.create();
+    LinkedListMultimap<String, Pair<FieldPartitioner, Predicate>>
+        partitionsBySource = LinkedListMultimap.create();
     for (FieldPartitioner fp : strategy.getFieldPartitioners()) {
-      partitioners.put(fp.getSourceName(), fp);
+      partitionsBySource.put(fp.getSourceName(), Pair.of(fp, predicates.get(fp.getName())));
     }
 
     Iterator<MarkerRange.Builder> current = start(new MarkerRange.Builder(cmp));
 
     // primarily loop over sources because the logical constraints are there
-    for (String source : partitioners.keySet()) {
+    for (String source : partitionsBySource.keySet()) {
       Predicate constraint = predicates.get(source);
-      List<FieldPartitioner> fps = partitioners.get(source);
-      FieldPartitioner first = fps.get(0);
-      if (first instanceof CalendarFieldPartitioner) {
-        current = TimeDomain.get(strategy, source)
+      List<Pair<FieldPartitioner, Predicate>> partitions = partitionsBySource.get(source);
+
+      Pair<FieldPartitioner, Predicate> partition = partitions.get(0);
+
+      if (partition.first() instanceof CalendarFieldPartitioner) {
+        current = TimeDomain.get(strategy, source) // TODO: support TimeDomain
             .addStackedIterator(constraint, current);
       } else if (constraint instanceof Predicates.In) {
-        current = add((Predicates.In) constraint, fps, current);
+        current = add((Predicates.In) constraint, partitions, current);
       } else if (constraint instanceof Range) {
-        current = add((Range) constraint, fps, current);
+        current = add((Range) constraint, partitions, current);
       }
     }
 
@@ -104,35 +111,36 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * added as a separate {@code StackedIterator}.
    *
    * @param constraint An "in" constraint for the <em>source</em> values
-   * @param fps A List of FieldPartitioners with the same source field
+   * @param partitions A List of FieldPartitioners with the same source field
    * @param inner An {@code Iterator} to wrap
    * @return A key range Iterator
    */
   @SuppressWarnings("unchecked")
   static Iterator<MarkerRange.Builder> add(
-      Predicates.In constraint, List<FieldPartitioner> fps,
+      Predicates.In constraint,
+      List<Pair<FieldPartitioner, Predicate>> partitions,
       Iterator<MarkerRange.Builder> inner) {
 
     Iterator<MarkerRange.Builder> current = inner;
-    List<FieldPartitioner> compatible = Lists.newArrayList();
-    for (FieldPartitioner fp : fps) {
-      Predicate<?> projected = fp.project(constraint);
-      if (projected instanceof Range) {
-        current = addProjected(projected, fp.getName(), current);
-      } else if (projected instanceof Predicates.In) {
-        compatible.add(fp);
-      }
-      // otherwise, all fields are included, so don't add anything
+
+    // lists of (fp, partition predicate) pairs
+    List<Pair<FieldPartitioner, Predicate>> group = Lists.newArrayList();
+
+    for (Pair<FieldPartitioner, Predicate> partition : partitions) {
+      FieldPartitioner fp = partition.first();
+      Predicate projected = fp.project(constraint);
+      Predicate combined = Constraints.combine(projected, partition.second());
+      group.add(Pair.of(fp, combined));
     }
 
-    if (compatible.size() < 1) {
-      return current;
-    } else if (compatible.size() == 1) {
-      FieldPartitioner fp = compatible.get(0);
-      return addProjected(fp.project(constraint), fp.getName(), current);
-    } else {
-      return new SetGroupIterator(constraint, compatible, current);
+    if (group.size() == 1) {
+      Pair<FieldPartitioner, Predicate> pair = group.get(0);
+      current = addProjected(pair.second(), pair.first().getName(), current);
+    } if (group.size() > 1) {
+      current = new SetGroupIterator(constraint, group, current);
     }
+
+    return current;
   }
 
   /**
@@ -145,36 +153,47 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
    * projected by {@link org.kitesdk.data.spi.partition.ListFieldPartitioner} are
    * "in" constraints and can't be grouped with ranges.
    *
-   * @param constraint A "range" constraint for the <em>source</em> values
-   * @param fps A List of FieldPartitioners with the same source field
+   * @param constraint A constraint for the <em>source</em> values
+   * @param partitions A List of FieldPartitioners with the same source field
    * @param inner An {@code Iterator} to wrap
    * @return A key range Iterator
    */
   @SuppressWarnings("unchecked")
   static Iterator<MarkerRange.Builder> add(
-      Range constraint, List<FieldPartitioner> fps,
+      Range constraint, List<Pair<FieldPartitioner, Predicate>> partitions,
       Iterator<MarkerRange.Builder> inner) {
 
     Iterator<MarkerRange.Builder> current = inner;
-    List<Pair<String, Range>> compatible = Lists.newArrayList();
-    for (FieldPartitioner fp : fps) {
-      Predicate<?> projected = fp.project(constraint);
-      if (projected instanceof Predicates.In) {
-        current = addProjected(projected, fp.getName(), current);
-      } else if (projected instanceof Range) {
-        compatible.add(Pair.of(fp.getName(), (Range) projected));
+
+    // lists of (fp, partition predicate) pairs
+    List<Pair<FieldPartitioner, Predicate>> setGroup = Lists.newArrayList();
+    List<Pair<FieldPartitioner, Range>> rangeGroup = Lists.newArrayList();
+
+    for (Pair<FieldPartitioner, Predicate> partition : partitions) {
+      FieldPartitioner fp = partition.first();
+      Predicate projected = fp.project(constraint);
+      Predicate combined = Constraints.combine(projected, partition.second());
+
+      if (combined instanceof Predicates.In) {
+        setGroup.add(Pair.of(fp, combined));
+      } else if (combined instanceof Range) {
+        rangeGroup.add(Pair.of(fp, (Range) combined));
       }
-      // otherwise, all fields are included, so don't add anything
     }
 
-    if (compatible.size() < 1) {
-      return current;
-    } else if (compatible.size() == 1) {
-      Pair<String, Range> pair = compatible.get(0);
-      return addProjected((Predicate<?>) pair.second(), pair.first(), current);
-    } else {
-      return new RangeGroupIterator(constraint, compatible, current);
+    for (Pair<FieldPartitioner, Predicate> partition : setGroup) {
+      current = addProjected(
+          partition.second(), partition.first().getName(), current);
     }
+
+    if (rangeGroup.size() == 1) {
+      Pair<FieldPartitioner, Range> pair = rangeGroup.get(0);
+      return addProjected(pair.second(), pair.first().getName(), current);
+    } else if (rangeGroup.size() > 1) {
+      return new RangeGroupIterator(constraint, rangeGroup, current);
+    }
+
+    return current;
   }
 
   /**
@@ -274,8 +293,8 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
      * Construct a {@code SetIterator} for the given <em>projected</em> "in"
      * constraint.
      *
-     * @param name The name of the partition field
      * @param projected An "in" constraint of the <em>partition</em> values
+     * @param name The partition field name
      * @param inner An {@code Iterator} to wrap
      */
     @SuppressWarnings("unchecked")
@@ -327,15 +346,31 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
      * When grouped, the correct possible set is produced:
      *   (hash("a"), "a"), (hash("b"), "b")
      *
-     * @param constraint An "in" constraint for the <em>source</em> values
-     * @param fps A List of FieldPartitioners with the same source field
-     * @param inner An {@code Iterator} to wrap
+     * @param constraint
+     *            An "in" constraint for the <em>source</em> values
+     * @param partitions
+     *            Pairs of FieldPartitioners and partition predicates for the
+     *            same source field
+     * @param inner
+     *            An {@code Iterator} to wrap
      */
     @SuppressWarnings("unchecked")
-    SetGroupIterator(Predicates.In constraint, List<FieldPartitioner> fps,
-                            Iterator<MarkerRange.Builder> inner) {
-      this.fields = fps;
-      setItems(constraint.getSet());
+    SetGroupIterator(Predicates.In constraint,
+                     List<Pair<FieldPartitioner, Predicate>> partitions,
+                     Iterator<MarkerRange.Builder> inner) {
+
+      ImmutableList.Builder builder = ImmutableList.builder();
+      Iterable<Object> filtered = constraint.getSet();
+      for (Pair<FieldPartitioner, Predicate> partition : partitions) {
+        builder.add(partition.first());
+        filtered = Iterables.filter(filtered,
+            new Constraints.TransformPredicate(
+                partition.first(), partition.second()));
+      }
+
+      this.fields = builder.build();
+
+      setItems(ImmutableSet.copyOf(filtered));
       setInner(inner);
     }
 
@@ -393,9 +428,17 @@ class KeyRangeIterable implements Iterable<MarkerRange> {
       extends StackedIterator<Range, MarkerRange.Builder> {
     private final List<Pair<String, Range>> fields;
 
-    protected RangeGroupIterator(Range constraint, List<Pair<String, Range>> compatible,
-                              Iterator<MarkerRange.Builder> inner) {
-      this.fields = compatible;
+    RangeGroupIterator(Range constraint,
+                       List<Pair<FieldPartitioner, Range>> rangeGroup,
+                       Iterator<MarkerRange.Builder> inner) {
+
+      ImmutableList.Builder<Pair<String, Range>> builder =
+          ImmutableList.builder();
+      for (Pair<FieldPartitioner, Range> partition : rangeGroup) {
+        builder.add(Pair.of(partition.first().getName(), partition.second()));
+      }
+      this.fields = builder.build();
+
       setItem(constraint);
       setInner(inner);
     }

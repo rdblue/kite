@@ -79,10 +79,11 @@ public class TestKeyRangeIterable {
 
   @Test
   public void testSingleSet() {
-    Constraints c = emptyConstraints.with("component", "com.company.Main");
+    Constraints c = emptyConstraints.with(id)
+        .with("component", "com.company.Main");
 
     Marker main = new Marker.Builder("id_component", "com.company.Main").build();
-    MarkerRange actual = Iterables.getOnlyElement(c.toKeyRanges(id));
+    MarkerRange actual = Iterables.getOnlyElement(c.toKeyRanges());
     Assert.assertEquals(main, actual.getStart().getBound());
     Assert.assertEquals(main, actual.getEnd().getBound());
     Assert.assertEquals(new MarkerRange(idCmp).of(main), actual);
@@ -94,7 +95,7 @@ public class TestKeyRangeIterable {
         Sets.newHashSet(
             new MarkerRange(idCmp).of(main),
             new MarkerRange(idCmp).of(sc)),
-        c.toKeyRanges(id));
+        c.toKeyRanges());
   }
 
   @Test
