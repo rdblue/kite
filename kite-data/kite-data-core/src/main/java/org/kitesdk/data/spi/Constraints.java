@@ -100,7 +100,7 @@ public class Constraints implements Serializable{
   }
 
   @VisibleForTesting
-  Constraints with(PartitionStrategy strategy) {
+  Constraints partitionedBy(PartitionStrategy strategy) {
     Preconditions.checkArgument(this.strategy == null,
         "Cannot add partition strategy");
     // if replacing a non-null strategy, re-check compatibility

@@ -91,7 +91,7 @@ public class TestConstraints {
         emptyConstraints.toEntityPredicate().apply(null));
 
     Assert.assertNotNull("Should produce an unbound key range",
-        emptyConstraints.toKeyRanges(strategy));
+        emptyConstraints.toKeyRanges());
 
     Assert.assertTrue("Empty constraints should be unbounded",
         emptyConstraints.isUnbounded());
@@ -134,7 +134,7 @@ public class TestConstraints {
         exists.toEntityPredicate().apply(event));
 
     Assert.assertNotNull("Should produce a key range",
-        exists.toKeyRanges(strategy));
+        exists.toKeyRanges());
 
     Assert.assertFalse("Non-empty constraints (exists) should not be unbounded",
         exists.isUnbounded());
