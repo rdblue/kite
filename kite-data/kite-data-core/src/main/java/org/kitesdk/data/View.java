@@ -15,6 +15,7 @@
  */
 package org.kitesdk.data;
 
+import java.net.URI;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -117,4 +118,11 @@ public interface View<E> {
    * @return {@code true} if least one record exists, {@code false} otherwise
    */
   public boolean isEmpty();
+
+  /**
+   * Get a {@link URI} that identifies this {@code View}.
+   *
+   * @return a {@link URI} for this view.
+   */
+  public URI getUri();
 }
