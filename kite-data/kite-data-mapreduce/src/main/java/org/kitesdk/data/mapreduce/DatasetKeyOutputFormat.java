@@ -32,12 +32,14 @@ import org.apache.hadoop.mapreduce.OutputFormat;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.kitesdk.compat.Hadoop;
+import org.kitesdk.data.ColumnMapping;
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetException;
 import org.kitesdk.data.DatasetRepository;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.Datasets;
+import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.TypeNotFoundException;
 import org.kitesdk.data.View;
 import org.kitesdk.data.spi.DataModelUtil;
@@ -48,6 +50,8 @@ import org.kitesdk.data.spi.TemporaryDatasetRepositoryAccessor;
 import org.kitesdk.data.spi.URIBuilder;
 import org.kitesdk.data.spi.filesystem.FileSystemDataset;
 import org.kitesdk.data.spi.filesystem.FileSystemProperties;
+
+import static org.apache.avro.generic.GenericData.Record;
 
 /**
  * A MapReduce {@code OutputFormat} for writing to a {@link Dataset}.
@@ -69,6 +73,10 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
   public static final String KITE_TYPE = "kite.outputEntityType";
 
   private static final String KITE_WRITE_MODE = "kite.outputMode";
+  private static final String KITE_DATASET_EXISTS = "kite.outputDatasetExists";
+  private static final String KITE_OUTPUT_SCHEMA = "kite.outputSchema";
+  private static final String KITE_OUTPUT_STRATEGY = "kite.outputPartitionStrategy";
+  private static final String KITE_OUTPUT_MAPPING = "kite.outputColumnMapping";
 
   private static enum WriteMode {
     APPEND, OVERWRITE, FAIL_UNLESS_EMPTY
@@ -98,6 +106,7 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
      */
     public ConfigBuilder writeTo(URI uri) {
       conf.set(KITE_OUTPUT_URI, uri.toString());
+      conf.setBoolean(KITE_DATASET_EXISTS, Datasets.exists(uri));
       return this;
     }
 
@@ -189,6 +198,21 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
 
     public <E> ConfigBuilder withType(Class<E> type) {
       conf.setClass(KITE_TYPE, type, type);
+      return this;
+    }
+
+    public ConfigBuilder withSchema(Schema schema) {
+      conf.set(KITE_OUTPUT_SCHEMA, schema.toString());
+      return this;
+    }
+
+    public ConfigBuilder withPartitionStrategy(PartitionStrategy strategy) {
+      conf.set(KITE_OUTPUT_STRATEGY, strategy.toString());
+      return this;
+    }
+
+    public ConfigBuilder withColumnMapping(ColumnMapping mapping) {
+      conf.set(KITE_OUTPUT_MAPPING, mapping.toString());
       return this;
     }
 
@@ -343,6 +367,11 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
     @Override
     public void abortJob(JobContext jobContext, JobStatus.State state) {
       deleteJobDataset(jobContext);
+      Configuration conf = Hadoop.JobContext.getConfiguration.invoke(jobContext);
+      if (!conf.getBoolean(KITE_DATASET_EXISTS, true)) {
+        // dataset did not exist at the start of the job and should be removed
+        Datasets.delete(URI.create(conf.get(KITE_OUTPUT_URI)));
+      }
     }
 
     @Override
@@ -414,20 +443,24 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
   public void checkOutputSpecs(JobContext jobContext) {
     // The committer setup will fail if the output dataset does not exist
     Configuration conf = Hadoop.JobContext.getConfiguration.invoke(jobContext);
-    View<E> target;
-    switch (conf.getEnum(KITE_WRITE_MODE, WriteMode.APPEND)) {
-      case FAIL_UNLESS_EMPTY:
-        target = load(jobContext);
-        if (!target.isEmpty()) {
-          throw new DatasetException("View is not empty: " + target);
-        }
-        break;
-      case OVERWRITE:
-        target = load(jobContext);
-        if (!target.isEmpty()) {
-          target.deleteAll();
-        }
-        break;
+    View<Record> target;
+    URI uri = URI.create(conf.get(KITE_OUTPUT_URI));
+    if (Datasets.exists(uri)) {
+      target = Datasets.load(uri, Record.class);
+      switch (conf.getEnum(KITE_WRITE_MODE, WriteMode.APPEND)) {
+        case FAIL_UNLESS_EMPTY:
+          if (!target.isEmpty()) {
+            throw new DatasetException("View is not empty: " + target);
+          }
+          break;
+        case OVERWRITE:
+          if (!target.isEmpty()) {
+            target.deleteAll();
+          }
+          break;
+      }
+    } else {
+      Datasets.create(uri, makeDescriptor(jobContext), Record.class);
     }
   }
 
@@ -485,7 +518,7 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
     Configuration conf = Hadoop.JobContext.getConfiguration.invoke(jobContext);
     Class<E> type;
     try {
-      type = (Class<E>)conf.getClass(KITE_TYPE, GenericData.Record.class);
+      type = (Class<E>)conf.getClass(KITE_TYPE, Record.class);
     } catch (RuntimeException e) {
       if (e.getCause() instanceof ClassNotFoundException) {
         throw new TypeNotFoundException(String.format(
@@ -499,13 +532,12 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
     return type;
   }
 
-  @SuppressWarnings("unchecked")
   private static <E> Dataset<E> createJobDataset(JobContext jobContext) {
     Dataset<Object> dataset = load(jobContext).getDataset();
     String jobDatasetName = getJobDatasetName(jobContext);
     DatasetRepository repo = getDatasetRepository(jobContext);
     return repo.create(jobDatasetName, copy(dataset.getDescriptor()),
-        (Class<E>)getType(jobContext));
+        DatasetKeyOutputFormat.<E>getType(jobContext));
   }
 
   private static <E> Dataset<E> loadJobDataset(JobContext jobContext) {
@@ -546,4 +578,19 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
         .build();
   }
 
+  private static DatasetDescriptor makeDescriptor(JobContext jobContext) {
+    Configuration conf = Hadoop.JobContext.getConfiguration.invoke(jobContext);
+    DatasetDescriptor.Builder builder = new DatasetDescriptor.Builder()
+        .schemaLiteral(conf.get(KITE_OUTPUT_SCHEMA))
+        .property(FileSystemProperties.NON_DURABLE_PARQUET_PROP, "true");
+    String strategy = conf.get(KITE_OUTPUT_STRATEGY);
+    if (strategy != null) {
+      builder.partitionStrategyLiteral(strategy);
+    }
+    String mapping = conf.get(KITE_OUTPUT_STRATEGY);
+    if (mapping != null) {
+      builder.columnMappingLiteral(mapping);
+    }
+    return builder.build();
+  }
 }
