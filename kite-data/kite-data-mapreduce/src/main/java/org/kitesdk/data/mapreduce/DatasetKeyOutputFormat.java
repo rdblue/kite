@@ -35,6 +35,7 @@ import org.kitesdk.compat.Hadoop;
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetException;
+import org.kitesdk.data.DatasetNotFoundException;
 import org.kitesdk.data.DatasetWriter;
 import org.kitesdk.data.Datasets;
 import org.kitesdk.data.TypeNotFoundException;
@@ -46,7 +47,6 @@ import org.kitesdk.data.spi.Mergeable;
 import org.kitesdk.data.spi.PartitionKey;
 import org.kitesdk.data.spi.TemporaryDatasetRepository;
 import org.kitesdk.data.spi.TemporaryDatasetRepositoryAccessor;
-import org.kitesdk.data.spi.URIBuilder;
 import org.kitesdk.data.spi.filesystem.FileSystemDataset;
 import org.kitesdk.data.spi.filesystem.FileSystemProperties;
 
@@ -537,9 +537,16 @@ public class DatasetKeyOutputFormat<E> extends OutputFormat<E, Void> {
         DatasetKeyOutputFormat.<E>getType(jobContext));
   }
 
-  private static <E> Dataset<E> loadJobDataset(JobContext jobContext) {
-    DatasetRepository repo = getDatasetRepository(jobContext);
-    return repo.load(TEMP_NAMESPACE, getJobDatasetName(jobContext));
+  private static <E> Dataset<E> loadJobDataset(final JobContext jobContext) {
+    final DatasetRepository repo = getDatasetRepository(jobContext);
+    RetryUtil.Action<Dataset<E>, DatasetNotFoundException> load = new
+        RetryUtil.Action<Dataset<E>, DatasetNotFoundException>() {
+          @Override
+          public Dataset<E> call() throws DatasetNotFoundException {
+            return repo.load(TEMP_NAMESPACE, getJobDatasetName(jobContext));
+          }
+        };
+    return RetryUtil.retryWithBackoff(load, DatasetNotFoundException.class);
   }
 
   private static void deleteJobDataset(JobContext jobContext) {
