@@ -22,6 +22,7 @@ import java.io.Closeable;
 import java.io.Flushable;
 import java.io.IOException;
 import java.util.UUID;
+import org.apache.avro.file.DataFileWriter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -52,11 +53,15 @@ class FileSystemWriter<E> extends AbstractDatasetWriter<E> {
   protected final FileSystem fs;
   private final Path directory;
   private final DatasetDescriptor descriptor;
-  private FileAppender<E> appender;
-  private Path tempPath;
-  private Path finalPath;
   private ReaderWriterState state;
   private int count = 0;
+
+  @VisibleForTesting
+  Path tempPath;
+  @VisibleForTesting
+  Path finalPath;
+  @VisibleForTesting
+  FileAppender<E> appender;
 
   @VisibleForTesting
   final Configuration conf;
@@ -82,11 +87,12 @@ class FileSystemWriter<E> extends AbstractDatasetWriter<E> {
     Preconditions.checkState(state.equals(ReaderWriterState.NEW),
         "Unable to open a writer from state:%s", state);
 
+    this.state = ReaderWriterState.ERROR;
+
     // ensure the directory exists
     try {
       fs.mkdirs(directory);
     } catch (IOException ex) {
-      this.state = ReaderWriterState.ERROR;
       throw new DatasetIOException("Failed to create path " + directory, ex);
     }
 
@@ -98,7 +104,6 @@ class FileSystemWriter<E> extends AbstractDatasetWriter<E> {
     try {
       appender.open();
     } catch (IOException e) {
-      this.state = ReaderWriterState.ERROR;
       throw new DatasetIOException("Failed to open appender " + appender, e);
     }
 
@@ -121,6 +126,16 @@ class FileSystemWriter<E> extends AbstractDatasetWriter<E> {
       this.state = ReaderWriterState.ERROR;
       throw new DatasetIOException(
           "Failed to append " + entity + " to " + appender, e);
+    } catch (DataFileWriter.AppendWriteException e) {
+      // do not go into an error state. from the AppendWriteException docs:
+      //   "When this is thrown, the file is unaltered and may continue to be
+      //   appended to."
+      throw e;
+    } catch (RuntimeException e) {
+      // any unknown failure results in an ERROR state because there is no
+      // expectation that close tasks will complete successfully
+      this.state = ReaderWriterState.ERROR;
+      throw e;
     }
   }
 
@@ -132,7 +147,12 @@ class FileSystemWriter<E> extends AbstractDatasetWriter<E> {
       appender.flush();
     } catch (IOException e) {
       this.state = ReaderWriterState.ERROR;
-      throw new DatasetWriterException("Failed to flush appender " + appender);
+      throw new DatasetIOException("Failed to flush appender " + appender, e);
+    } catch (RuntimeException e) {
+      // any failure to flush results in an ERROR state because there is no
+      // expectation that close tasks will complete successfully
+      this.state = ReaderWriterState.ERROR;
+      throw e;
     }
   }
 
@@ -145,16 +165,25 @@ class FileSystemWriter<E> extends AbstractDatasetWriter<E> {
     } catch (IOException e) {
       this.state = ReaderWriterState.ERROR;
       throw new DatasetIOException("Failed to sync appender " + appender, e);
+    } catch (RuntimeException e) {
+      // any failure to sync results in an ERROR state because there is no
+      // expectation that close tasks will complete successfully
+      this.state = ReaderWriterState.ERROR;
+      throw e;
     }
   }
 
   @Override
   public final void close() {
     if (state.equals(ReaderWriterState.OPEN)) {
+      // set the state to Error until all tasks are complete. this ensures that
+      // if there is an unhandled exception, a second call to close will not
+      // cause tasks to be retried
+      this.state = ReaderWriterState.ERROR;
+
       try {
         appender.close();
       } catch (IOException e) {
-        this.state = ReaderWriterState.ERROR;
         throw new DatasetIOException("Failed to close appender " + appender, e);
       }
 
@@ -162,12 +191,10 @@ class FileSystemWriter<E> extends AbstractDatasetWriter<E> {
         // commit the temp file
         try {
           if (!fs.rename(tempPath, finalPath)) {
-            this.state = ReaderWriterState.ERROR;
             throw new DatasetWriterException(
                 "Failed to move " + tempPath + " to " + finalPath);
           }
         } catch (IOException e) {
-          this.state = ReaderWriterState.ERROR;
           throw new DatasetIOException("Failed to commit " + finalPath, e);
         }
 
@@ -177,11 +204,9 @@ class FileSystemWriter<E> extends AbstractDatasetWriter<E> {
         // discard the temp file
         try {
           if (!fs.delete(tempPath, true)) {
-            this.state = ReaderWriterState.ERROR;
             throw new DatasetWriterException("Failed to delete " + tempPath);
           }
         } catch (IOException e) {
-          this.state = ReaderWriterState.ERROR;
           throw new DatasetIOException(
               "Failed to remove temporary file " + tempPath, e);
         }
@@ -216,7 +241,7 @@ class FileSystemWriter<E> extends AbstractDatasetWriter<E> {
   }
 
   @SuppressWarnings("unchecked")
-  private <E> FileAppender<E> newAppender(Path temp) {
+  private FileAppender<E> newAppender(Path temp) {
     Format format = descriptor.getFormat();
     if (Formats.PARQUET.equals(format)) {
       // by default, guarantee durability with the more costly writer

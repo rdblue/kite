@@ -15,6 +15,7 @@
  */
 package org.kitesdk.data.spi.filesystem;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.io.Closeables;
 import java.io.IOException;
@@ -96,7 +97,8 @@ class DurableParquetAppender<E extends IndexedRecord> implements FileSystemWrite
         .toString();
   }
 
-  private static Path avroPath(Path path) {
+  @VisibleForTesting
+  static Path avroPath(Path path) {
     return new Path(path.getParent(), path.getName() + ".avro");
   }
 }
