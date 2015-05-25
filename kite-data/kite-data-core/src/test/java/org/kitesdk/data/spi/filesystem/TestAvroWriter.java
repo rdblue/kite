@@ -33,9 +33,13 @@ import org.kitesdk.data.Syncable;
 import org.kitesdk.data.spi.ReaderWriterState;
 
 public class TestAvroWriter extends TestFileSystemWriters {
+
+  private static final long TARGET_FILE_SIZE = 2 * 1024 * 1024;
+
   @Override
   public FileSystemWriter<Record> newWriter(Path directory, Schema schema) {
-    return FileSystemWriter.newWriter(fs, directory, 100, 2 * 1024 * 1024,
+    return FileSystemWriter.newWriter(fs, directory, 100, TARGET_FILE_SIZE,
+        Record.class,
         new DatasetDescriptor.Builder()
             .property(
                 "kite.writer.roll-interval-seconds", String.valueOf(10))
@@ -50,6 +54,11 @@ public class TestAvroWriter extends TestFileSystemWriters {
   @Override
   public DatasetReader<Record> newReader(Path path, Schema schema) {
     return new FileSystemDatasetReader<Record>(fs, path, schema, Record.class);
+  }
+
+  @Override
+  public long getTargetFileSize() {
+    return TARGET_FILE_SIZE;
   }
 
   @Test

@@ -18,6 +18,7 @@ package org.kitesdk.data.spi.filesystem;
 import java.util.NoSuchElementException;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.hadoop.ParquetReader;
 import org.kitesdk.data.DatasetIOException;
 import org.kitesdk.data.spi.DataModelUtil;
 import org.kitesdk.data.spi.ReaderWriterState;
@@ -27,8 +28,6 @@ import com.google.common.base.Preconditions;
 import java.io.EOFException;
 import java.io.IOException;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.IndexedRecord;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
@@ -36,16 +35,16 @@ import org.slf4j.LoggerFactory;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.avro.AvroReadSupport;
 
-class ParquetFileSystemDatasetReader<E extends IndexedRecord> extends AbstractDatasetReader<E> {
+class ParquetFileSystemDatasetReader<E> extends AbstractDatasetReader<E> {
 
   private FileSystem fileSystem;
   private Path path;
   private Schema schema;
-  private Schema readerSchema;
   private Class<E> type;
+  private Configuration conf;
 
   private ReaderWriterState state;
-  private AvroParquetReader<E> reader;
+  private ParquetReader<E> reader;
 
   private E next;
 
@@ -54,18 +53,17 @@ class ParquetFileSystemDatasetReader<E extends IndexedRecord> extends AbstractDa
 
   public ParquetFileSystemDatasetReader(FileSystem fileSystem, Path path,
       Schema schema, Class<E> type) {
-    Preconditions.checkArgument(fileSystem != null, "FileSystem cannot be null");
-    Preconditions.checkArgument(path != null, "Path cannot be null");
-    Preconditions.checkArgument(schema != null, "Schema cannot be null");
-    Preconditions.checkArgument(IndexedRecord.class.isAssignableFrom(type) ||
-        (Class<?>)type == Object.class,
-        "The entity type must implement IndexedRecord");
+    Preconditions.checkNotNull(fileSystem, "FileSystem cannot be null");
+    Preconditions.checkNotNull(path, "Path cannot be null");
+    Preconditions.checkNotNull(schema, "Schema cannot be null");
 
     this.fileSystem = fileSystem;
     this.path = path;
     this.schema = schema;
     this.type = type;
-    this.readerSchema = DataModelUtil.getReaderSchema(type, schema);
+    this.conf = new Configuration(fileSystem.getConf());
+    AvroReadSupport.setAvroReadSchema(conf,
+        DataModelUtil.getReaderSchema(type, schema));
 
     this.state = ReaderWriterState.NEW;
   }
@@ -78,10 +76,11 @@ class ParquetFileSystemDatasetReader<E extends IndexedRecord> extends AbstractDa
     LOG.debug("Opening reader on path:{}", path);
 
     try {
-      final Configuration conf = fileSystem.getConf();
-      AvroReadSupport.setAvroReadSchema(conf, readerSchema);
-      reader = new AvroParquetReader<E>(
-          conf, fileSystem.makeQualified(path));
+      reader = AvroParquetReader
+          .<E>builder(fileSystem.makeQualified(path))
+          .withDataModel(DataModelUtil.getDataModelForType(type))
+          .withConf(conf)
+          .build();
     } catch (IOException e) {
       throw new DatasetIOException("Unable to create reader path:" + path, e);
     }

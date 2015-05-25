@@ -23,7 +23,6 @@ import org.apache.avro.Schema;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.io.DatumWriter;
-import org.apache.avro.reflect.ReflectDatumWriter;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -31,10 +30,12 @@ import org.kitesdk.compat.Hadoop;
 import org.kitesdk.data.CompressionType;
 import org.kitesdk.data.DatasetRecordException;
 import org.kitesdk.data.Formats;
+import org.kitesdk.data.spi.DataModelUtil;
 
 class AvroAppender<E> implements FileSystemWriter.FileAppender<E> {
 
   private final Schema schema;
+  private final Class<E> type;
   private final FileSystem fileSystem;
   private final Path path;
   private final boolean enableCompression;
@@ -45,17 +46,20 @@ class AvroAppender<E> implements FileSystemWriter.FileAppender<E> {
   private DatumWriter<E> writer = null;
 
   public AvroAppender(FileSystem fileSystem, Path path, Schema schema,
-      CompressionType compressionType) {
+                      Class<E> type, CompressionType compressionType) {
     this.fileSystem = fileSystem;
     this.path = path;
     this.schema = schema;
+    this.type = type;
     this.enableCompression = compressionType != CompressionType.Uncompressed;
     this.compressionType = compressionType;
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public void open() throws IOException {
-    writer = new ReflectDatumWriter<E>();
+    writer = (DatumWriter<E>) DataModelUtil.getDataModelForType(type)
+        .createDatumWriter(schema);
     dataFileWriter = new DataFileWriter<E>(writer);
 
     if (enableCompression) {

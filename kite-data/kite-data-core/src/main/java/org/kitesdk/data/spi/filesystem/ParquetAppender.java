@@ -20,20 +20,19 @@ import com.google.common.io.Closeables;
 import java.io.IOException;
 import java.util.Arrays;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.IndexedRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.kitesdk.data.CompressionType;
-import org.kitesdk.data.Formats;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.parquet.avro.AvroParquetWriter;
-import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.kitesdk.data.CompressionType;
+import org.kitesdk.data.Formats;
+import org.kitesdk.data.spi.DataModelUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-class ParquetAppender<E extends IndexedRecord> implements FileSystemWriter.FileAppender<E> {
+class ParquetAppender<E> implements FileSystemWriter.FileAppender<E> {
 
   private static final Logger LOG = LoggerFactory
     .getLogger(ParquetAppender.class);
@@ -41,18 +40,21 @@ class ParquetAppender<E extends IndexedRecord> implements FileSystemWriter.FileA
 
   private final Path path;
   private final Schema schema;
+  private final Class<E> type;
   private final FileSystem fileSystem;
   private final Configuration conf;
   private final boolean enableCompression;
   private final CompressionType compressionType;
 
-  private AvroParquetWriter<E> avroParquetWriter = null;
+  private ParquetWriter<E> avroParquetWriter = null;
 
   public ParquetAppender(FileSystem fileSystem, Path path, Schema schema,
-                         Configuration conf, CompressionType compressionType) {
+                         Class<E> type, Configuration conf,
+                         CompressionType compressionType) {
     this.fileSystem = fileSystem;
     this.path = path;
     this.schema = schema;
+    this.type = type;
     this.conf = conf;
     this.enableCompression = compressionType != CompressionType.Uncompressed;
     this.compressionType = compressionType;
@@ -64,10 +66,13 @@ class ParquetAppender<E extends IndexedRecord> implements FileSystemWriter.FileA
     if (enableCompression) {
       codecName = getCompressionCodecName();
     }
-    avroParquetWriter = new AvroParquetWriter<E>(fileSystem.makeQualified(path),
-        schema, codecName, DEFAULT_ROW_GROUP_SIZE,
-        ParquetWriter.DEFAULT_PAGE_SIZE,
-        ParquetWriter.DEFAULT_IS_DICTIONARY_ENABLED, conf);
+    avroParquetWriter = AvroParquetWriter
+        .<E>builder(fileSystem.makeQualified(path))
+        .withDataModel(DataModelUtil.getDataModelForType(type))
+        .withSchema(schema)
+        .withCompressionCodec(codecName)
+        .withConf(conf)
+        .build();
   }
 
   @Override
@@ -77,9 +82,7 @@ class ParquetAppender<E extends IndexedRecord> implements FileSystemWriter.FileA
 
   @Override
   public long pos() throws IOException {
-    // TODO: add a callback to set the position when Parquet decides to flush
-    // this is not a good way to find out the current position
-    return fileSystem.getFileStatus(path).getLen();
+    return avroParquetWriter.getDataSize();
   }
 
   @Override

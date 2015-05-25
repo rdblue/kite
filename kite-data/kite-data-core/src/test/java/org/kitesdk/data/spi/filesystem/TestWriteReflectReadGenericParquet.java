@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Cloudera, Inc.
+ * Copyright 2015 Cloudera Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.kitesdk.data.spi.filesystem;
 
 import com.google.common.io.Files;
+import java.io.IOException;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.fs.FileSystem;
@@ -24,15 +25,16 @@ import org.apache.hadoop.fs.Path;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.kitesdk.data.*;
-import org.kitesdk.data.event.StandardEvent;
+import org.kitesdk.data.Dataset;
+import org.kitesdk.data.DatasetDescriptor;
+import org.kitesdk.data.DatasetReader;
+import org.kitesdk.data.DatasetWriter;
+import org.kitesdk.data.Formats;
+import org.kitesdk.data.LocalFileSystem;
+import org.kitesdk.data.TestDatasetReaders;
 import org.kitesdk.data.spi.filesystem.DatasetTestUtilities.RecordValidator;
 
-import java.io.IOException;
-
-public class TestWriteSpecificReadGenericParquet extends TestDatasetReaders<GenericRecord> {
+public class TestWriteReflectReadGenericParquet extends TestDatasetReaders<GenericRecord> {
 
   private static final int totalRecords = 100;
   protected static FileSystem fs = null;
@@ -43,16 +45,17 @@ public class TestWriteSpecificReadGenericParquet extends TestDatasetReaders<Gene
   public static void setup() throws IOException {
     fs = LocalFileSystem.getInstance();
     testDirectory = new Path(Files.createTempDir().getAbsolutePath());
-    FileSystemDatasetRepository repo = new FileSystemDatasetRepository(fs.getConf(),
-        testDirectory);
-    Dataset<StandardEvent> writerDataset = repo.create("ns", "test", new DatasetDescriptor.Builder()
-                                   .schema(StandardEvent.class)
-                                   .format(Formats.PARQUET)
-                                   .build(), StandardEvent.class);
-    DatasetWriter<StandardEvent> writer = writerDataset.newWriter();
-    for (long i = 0; i < totalRecords; i++) {
-      String text = String.valueOf(i);
-      writer.write(new StandardEvent(text, text, i, text, text, i));
+    FileSystemDatasetRepository repo = new FileSystemDatasetRepository(
+        fs.getConf(), testDirectory);
+    Dataset<MyRecord> writerDataset = repo.create("ns", "test",
+        new DatasetDescriptor.Builder()
+            .schema(MyRecord.class)
+            .format(Formats.PARQUET)
+            .build(),
+        MyRecord.class);
+    DatasetWriter<MyRecord> writer = writerDataset.newWriter();
+    for (int i = 0; i < totalRecords; i++) {
+      writer.write(new MyRecord(String.valueOf(i), i));
     }
     writer.close();
 
@@ -77,17 +80,25 @@ public class TestWriteSpecificReadGenericParquet extends TestDatasetReaders<Gene
   @Override
   public RecordValidator<GenericRecord> getValidator() {
     return new RecordValidator<GenericRecord>() {
-
       @Override
       public void validate(GenericRecord record, int recordNum) {
         Assert.assertEquals(GenericData.Record.class, record.getClass());
-        Assert.assertEquals(String.valueOf(recordNum), record.get("event_initiator").toString());
-        Assert.assertEquals(String.valueOf(recordNum), record.get("event_name").toString());
-        Assert.assertEquals(Long.valueOf(recordNum), record.get("user_id"));
-        Assert.assertEquals(String.valueOf(recordNum), record.get("session_id").toString());
-        Assert.assertEquals(String.valueOf(recordNum), record.get("ip").toString());
-        Assert.assertEquals(Long.valueOf(recordNum), record.get("timestamp"));
+        Assert.assertEquals(String.valueOf(recordNum), record.get("text").toString());
+        Assert.assertEquals(recordNum, record.get("value"));
       }
     };
+  }
+
+  public static class MyRecord {
+    private String text;
+    private int value;
+
+    public MyRecord() {
+    }
+
+    public MyRecord(String text, int value) {
+      this.text = text;
+      this.value = value;
+    }
   }
 }

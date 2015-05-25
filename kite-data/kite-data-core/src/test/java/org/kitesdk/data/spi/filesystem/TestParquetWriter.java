@@ -23,7 +23,6 @@ import org.apache.avro.generic.GenericData.Record;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetReader;
@@ -32,9 +31,13 @@ import org.kitesdk.data.LocalFileSystem;
 import org.kitesdk.data.Syncable;
 
 public class TestParquetWriter extends TestFileSystemWriters {
+
+  private static final long TARGET_FILE_SIZE = 5 * 1024 * 1024 / 2; // 2.5 MB
+
   @Override
   public FileSystemWriter<Record> newWriter(Path directory, Schema schema) {
-    return FileSystemWriter.newWriter(fs, directory, 1, -1,
+    return FileSystemWriter.newWriter(fs, directory, 1, TARGET_FILE_SIZE,
+        Record.class,
         new DatasetDescriptor.Builder()
             .property(
                 "kite.writer.roll-interval-seconds", String.valueOf(1))
@@ -47,6 +50,11 @@ public class TestParquetWriter extends TestFileSystemWriters {
   public DatasetReader<Record> newReader(Path path, Schema schema) {
     return new ParquetFileSystemDatasetReader<Record>(
         fs, path, schema, Record.class);
+  }
+
+  @Override
+  public long getTargetFileSize() {
+    return TARGET_FILE_SIZE;
   }
 
   @Test
@@ -63,7 +71,7 @@ public class TestParquetWriter extends TestFileSystemWriters {
   public void testParquetConfiguration() throws IOException {
     FileSystem fs = LocalFileSystem.getInstance();
     FileSystemWriter<Object> writer = FileSystemWriter.newWriter(
-        fs, new Path("/tmp"), -1, -1,
+        fs, new Path("/tmp"), -1, -1, Object.class,
         new DatasetDescriptor.Builder()
             .property("parquet.block.size", "34343434")
             .schema(SchemaBuilder.record("test").fields()
@@ -85,7 +93,7 @@ public class TestParquetWriter extends TestFileSystemWriters {
   public void testConfigureDurableParquetAppender() throws IOException {
     FileSystem fs = LocalFileSystem.getInstance();
     FileSystemWriter<Object> writer = FileSystemWriter.newWriter(
-        fs, new Path("/tmp"), -1, -1,
+        fs, new Path("/tmp"), -1, -1, Object.class,
         new DatasetDescriptor.Builder()
             .property(FileSystemProperties.NON_DURABLE_PARQUET_PROP, "false")
             .schema(SchemaBuilder.record("test").fields()
@@ -101,7 +109,7 @@ public class TestParquetWriter extends TestFileSystemWriters {
   public void testConfigureNonDurableParquetAppender() throws IOException {
     FileSystem fs = LocalFileSystem.getInstance();
     FileSystemWriter<Object> writer = FileSystemWriter.newWriter(
-        fs, new Path("/tmp"), -1, -1,
+        fs, new Path("/tmp"), -1, -1, Object.class,
         new DatasetDescriptor.Builder()
             .property(FileSystemProperties.NON_DURABLE_PARQUET_PROP, "true")
             .schema(SchemaBuilder.record("test").fields()
@@ -111,10 +119,5 @@ public class TestParquetWriter extends TestFileSystemWriters {
             .build());
     Assert.assertEquals("Enabling the non-durable parquet appender should get us a non-durable appender",
         ParquetAppender.class, writer.newAppender(testDirectory).getClass());
-  }
-
-  @Override
-  @Ignore // Needs PARQUET-308 to estimate current file size
-  public void testTargetFileSize() throws IOException {
   }
 }

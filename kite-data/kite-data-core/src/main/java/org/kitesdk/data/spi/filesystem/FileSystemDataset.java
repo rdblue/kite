@@ -56,8 +56,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Set;
-import org.apache.avro.generic.IndexedRecord;
-import org.kitesdk.data.Formats;
 
 @SuppressWarnings("deprecation")
 public class FileSystemDataset<E> extends AbstractDataset<E> implements
@@ -92,12 +90,6 @@ public class FileSystemDataset<E> extends AbstractDataset<E> implements
                     @Nullable PartitionListener partitionListener,
                     Class<E> type) {
     super(type, descriptor.getSchema());
-    if (Formats.PARQUET.equals(descriptor.getFormat())) {
-      Preconditions.checkArgument(IndexedRecord.class.isAssignableFrom(type) ||
-          type == Object.class,
-          "Parquet only supports generic and specific data models, type"
-          + " parameter must implement IndexedRecord");
-    }
 
     this.fileSystem = fileSystem;
     this.directory = directory;

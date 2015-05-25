@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 Cloudera, Inc.
+ * Copyright 2015 Cloudera Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,6 +17,7 @@
 package org.kitesdk.data.spi.filesystem;
 
 import com.google.common.io.Files;
+import java.io.IOException;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.fs.FileSystem;
@@ -24,31 +25,36 @@ import org.apache.hadoop.fs.Path;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.kitesdk.data.*;
+import org.kitesdk.data.Dataset;
+import org.kitesdk.data.DatasetDescriptor;
+import org.kitesdk.data.DatasetReader;
+import org.kitesdk.data.DatasetWriter;
+import org.kitesdk.data.Formats;
+import org.kitesdk.data.LocalFileSystem;
+import org.kitesdk.data.TestDatasetReaders;
+import org.kitesdk.data.event.ReflectStandardEvent;
 import org.kitesdk.data.event.StandardEvent;
 import org.kitesdk.data.spi.filesystem.DatasetTestUtilities.RecordValidator;
 
-import java.io.IOException;
-
-public class TestWriteSpecificReadGenericParquet extends TestDatasetReaders<GenericRecord> {
+public class TestWriteSpecificReadReflectParquet extends TestDatasetReaders<ReflectStandardEvent> {
 
   private static final int totalRecords = 100;
   protected static FileSystem fs = null;
   protected static Path testDirectory = null;
-  protected static Dataset<GenericRecord> readerDataset;
+  protected static Dataset<ReflectStandardEvent> readerDataset;
 
   @BeforeClass
   public static void setup() throws IOException {
     fs = LocalFileSystem.getInstance();
     testDirectory = new Path(Files.createTempDir().getAbsolutePath());
-    FileSystemDatasetRepository repo = new FileSystemDatasetRepository(fs.getConf(),
-        testDirectory);
-    Dataset<StandardEvent> writerDataset = repo.create("ns", "test", new DatasetDescriptor.Builder()
-                                   .schema(StandardEvent.class)
-                                   .format(Formats.PARQUET)
-                                   .build(), StandardEvent.class);
+    FileSystemDatasetRepository repo = new FileSystemDatasetRepository(
+        fs.getConf(), testDirectory);
+    Dataset<StandardEvent> writerDataset = repo.create("ns", "test",
+        new DatasetDescriptor.Builder()
+            .schema(StandardEvent.class)
+            .format(Formats.PARQUET)
+            .build(),
+        StandardEvent.class);
     DatasetWriter<StandardEvent> writer = writerDataset.newWriter();
     for (long i = 0; i < totalRecords; i++) {
       String text = String.valueOf(i);
@@ -56,7 +62,7 @@ public class TestWriteSpecificReadGenericParquet extends TestDatasetReaders<Gene
     }
     writer.close();
 
-    readerDataset = repo.load("ns", "test", GenericRecord.class);
+    readerDataset = repo.load("ns", "test", ReflectStandardEvent.class);
   }
 
   @AfterClass
@@ -65,7 +71,7 @@ public class TestWriteSpecificReadGenericParquet extends TestDatasetReaders<Gene
   }
 
   @Override
-  public DatasetReader<GenericRecord> newReader() throws IOException {
+  public DatasetReader<ReflectStandardEvent> newReader() throws IOException {
     return readerDataset.newReader();
   }
 
@@ -75,18 +81,16 @@ public class TestWriteSpecificReadGenericParquet extends TestDatasetReaders<Gene
   }
 
   @Override
-  public RecordValidator<GenericRecord> getValidator() {
-    return new RecordValidator<GenericRecord>() {
-
+  public RecordValidator<ReflectStandardEvent> getValidator() {
+    return new RecordValidator<ReflectStandardEvent>() {
       @Override
-      public void validate(GenericRecord record, int recordNum) {
-        Assert.assertEquals(GenericData.Record.class, record.getClass());
-        Assert.assertEquals(String.valueOf(recordNum), record.get("event_initiator").toString());
-        Assert.assertEquals(String.valueOf(recordNum), record.get("event_name").toString());
-        Assert.assertEquals(Long.valueOf(recordNum), record.get("user_id"));
-        Assert.assertEquals(String.valueOf(recordNum), record.get("session_id").toString());
-        Assert.assertEquals(String.valueOf(recordNum), record.get("ip").toString());
-        Assert.assertEquals(Long.valueOf(recordNum), record.get("timestamp"));
+      public void validate(ReflectStandardEvent record, int recordNum) {
+        Assert.assertEquals(String.valueOf(recordNum), record.getEvent_initiator());
+        Assert.assertEquals(String.valueOf(recordNum), record.getEvent_name());
+        Assert.assertEquals((long) recordNum, record.getUser_id());
+        Assert.assertEquals(String.valueOf(recordNum), record.getSession_id());
+        Assert.assertEquals(String.valueOf(recordNum), record.getIp());
+        Assert.assertEquals((long) recordNum, record.getTimestamp());
       }
     };
   }

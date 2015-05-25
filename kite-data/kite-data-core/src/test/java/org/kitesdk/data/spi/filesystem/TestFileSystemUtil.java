@@ -679,7 +679,7 @@ public class TestFileSystemUtil {
   public void createAvroUserFile(FileSystem fs, Path parent) throws IOException {
     Path file = new Path(parent, UUID.randomUUID().toString() + ".avro");
     AvroAppender<Record> appender = new AvroAppender<Record>(
-        fs, file, USER_SCHEMA, Uncompressed);
+        fs, file, USER_SCHEMA, Record.class, Uncompressed);
     appender.open();
     appender.append(USER);
     appender.close();
@@ -688,7 +688,7 @@ public class TestFileSystemUtil {
   public void createAvroEventFile(FileSystem fs, Path parent) throws IOException {
     Path file = new Path(parent, UUID.randomUUID().toString() + ".avro");
     AvroAppender<Record> appender = new AvroAppender<Record>(
-        fs, file, EVENT_SCHEMA, Uncompressed);
+        fs, file, EVENT_SCHEMA, Record.class, Uncompressed);
     appender.open();
     appender.append(EVENT);
     appender.close();
@@ -697,7 +697,7 @@ public class TestFileSystemUtil {
   public void createParquetUserFile(FileSystem fs, Path parent) throws IOException {
     Path file = new Path(parent, UUID.randomUUID().toString() + ".parquet");
     ParquetAppender<Record> appender = new ParquetAppender<Record>(
-        fs, file, USER_SCHEMA, new Configuration(), Uncompressed);
+        fs, file, USER_SCHEMA, Record.class, new Configuration(), Uncompressed);
     appender.open();
     appender.append(USER);
     appender.close();
@@ -706,7 +706,7 @@ public class TestFileSystemUtil {
   public void createParquetEventFile(FileSystem fs, Path parent) throws IOException {
     Path file = new Path(parent, UUID.randomUUID().toString() + ".parquet");
     ParquetAppender<Record> appender = new ParquetAppender<Record>(
-        fs, file, EVENT_SCHEMA, new Configuration(), Uncompressed);
+        fs, file, EVENT_SCHEMA, Record.class, new Configuration(), Uncompressed);
     appender.open();
     appender.append(EVENT);
     appender.close();
