@@ -15,11 +15,28 @@
  */
 package org.kitesdk.data.kudu.impl;
 
+import java.util.Map;
+
+import org.kitesdk.data.kudu.KuduDatasetRepository;
+import org.kitesdk.data.spi.DatasetRepository;
 import org.kitesdk.data.spi.Loadable;
+import org.kitesdk.data.spi.OptionBuilder;
+import org.kitesdk.data.spi.Registration;
+import org.kitesdk.data.spi.URIPattern;
 
 public class Loader implements Loadable {
   @Override
   public void load() {
-    // TODO: Implement
+    Registration.register(
+      new URIPattern("kudu::master"),
+      new URIPattern("kudu::master/:dataset"),
+      new OptionBuilder<DatasetRepository>() {
+
+        @Override
+        public DatasetRepository getFromOptions(Map<String, String> options) {
+          return new KuduDatasetRepository.Builder().master(options.get("master")).build();
+        }
+      }
+    );
   }
 }
