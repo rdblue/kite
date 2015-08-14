@@ -18,7 +18,9 @@ package org.kitesdk.data.kudu;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetIOException;
 import org.kitesdk.data.DatasetNotFoundException;
+import org.kitesdk.data.DatasetOperationException;
 import org.kitesdk.data.RandomAccessDataset;
+import org.kitesdk.data.URIBuilder;
 import org.kitesdk.data.spi.AbstractDatasetRepository;
 import org.kududb.client.KuduClient;
 import org.kududb.client.KuduTable;
@@ -42,23 +44,23 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
   public <E> RandomAccessDataset<E> load(String namespace, String name,
       Class<E> type) {
     return new KuduDataset<E>(namespace, name, kuduClient, getKuduTable(name),
-        metadataProvider.load(name), repositoryUri, type);
+        metadataProvider.load(namespace, name), datasetUri(name), type);
   }
 
   @Override
   public <E> RandomAccessDataset<E> create(String namespace, String name,
       DatasetDescriptor descriptor, Class<E> type) {
-    metadataProvider.create(name, descriptor);
+    DatasetDescriptor created = metadataProvider.create(namespace, name, descriptor);
     return new KuduDataset<E>(namespace, name, kuduClient, getKuduTable(name),
-        descriptor, repositoryUri, type);
+        created, datasetUri(name), type);
   }
 
   @Override
   public <E> RandomAccessDataset<E> update(String namespace, String name,
       DatasetDescriptor descriptor, Class<E> type) {
-    // this will throw a not implemented exception
+    DatasetDescriptor updated = metadataProvider.update(namespace, name, descriptor);
     return new KuduDataset<E>(namespace, name, kuduClient, getKuduTable(name),
-        metadataProvider.update(name, descriptor), repositoryUri, type);
+        updated, datasetUri(name), type);
   }
 
   private KuduTable getKuduTable(String name) {
@@ -68,7 +70,7 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
     try {
       return kuduClient.openTable(name);
     } catch (Exception e) {
-      throw new DatasetIOException("Error communicating with kudu", new IOException(e.getMessage()));
+      throw new DatasetOperationException("Error communicating with kudu", e);
     }
   }
 
@@ -96,6 +98,10 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
   @Override
   public URI getUri() {
     return repositoryUri;
+  }
+
+  private URI datasetUri(String name) {
+    return new URIBuilder(repositoryUri, "default", name).build();
   }
 
   public static class Builder {
