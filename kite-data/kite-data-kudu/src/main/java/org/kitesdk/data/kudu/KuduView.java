@@ -20,6 +20,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.InputFormat;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
+import org.kitesdk.data.kudu.impl.KuduBatchReader;
 import org.kitesdk.data.kudu.impl.KuduBatchWriter;
 import org.kitesdk.data.spi.AbstractRefinableView;
 import org.kitesdk.data.spi.Constraints;
@@ -61,7 +62,7 @@ public class KuduView<E> extends AbstractRefinableView<E> implements InputFormat
 
   @Override
   public DatasetReader<E> newReader() {
-    return null;
+    return new KuduBatchReader<E>(dataset.getClient(), dataset.getTable(), this);
   }
 
   @Override
