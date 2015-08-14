@@ -16,17 +16,19 @@
 package org.kitesdk.data.kudu;
 
 import org.kitesdk.data.DatasetDescriptor;
+import org.kitesdk.data.DatasetIOException;
+import org.kitesdk.data.DatasetNotFoundException;
 import org.kitesdk.data.RandomAccessDataset;
 import org.kitesdk.data.spi.AbstractDatasetRepository;
 import org.kududb.client.KuduClient;
 import org.kududb.client.KuduTable;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Collection;
 
 public class KuduDatasetRepository extends AbstractDatasetRepository {
   private KuduClient kuduClient;
-  private KuduTable kuduTable;
   private KuduMetadataProvider metadataProvider;
   private final URI repositoryUri;
 
@@ -39,7 +41,7 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
   @Override
   public <E> RandomAccessDataset<E> load(String namespace, String name,
       Class<E> type) {
-    return new KuduDataset<E>(namespace, name, kuduClient, kuduTable,
+    return new KuduDataset<E>(namespace, name, kuduClient, getKuduTable(name),
         metadataProvider.load(name), repositoryUri, type);
   }
 
@@ -47,7 +49,7 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
   public <E> RandomAccessDataset<E> create(String namespace, String name,
       DatasetDescriptor descriptor, Class<E> type) {
     metadataProvider.create(name, descriptor);
-    return new KuduDataset<E>(namespace, name, kuduClient, kuduTable,
+    return new KuduDataset<E>(namespace, name, kuduClient, getKuduTable(name),
         descriptor, repositoryUri, type);
   }
 
@@ -55,9 +57,21 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
   public <E> RandomAccessDataset<E> update(String namespace, String name,
       DatasetDescriptor descriptor, Class<E> type) {
     // this will throw a not implemented exception
-    return new KuduDataset<E>(namespace, name, kuduClient, kuduTable,
+    return new KuduDataset<E>(namespace, name, kuduClient, getKuduTable(name),
         metadataProvider.update(name, descriptor), repositoryUri, type);
   }
+
+  private KuduTable getKuduTable(String name) {
+    if (!metadataProvider.exists(name)) {
+      throw new DatasetNotFoundException(String.format("Table [%s] not found", name));
+    }
+    try {
+      return kuduClient.openTable(name);
+    } catch (Exception e) {
+      throw new DatasetIOException("Error communicating with kudu", new IOException(e.getMessage()));
+    }
+  }
+
 
   @Override
   public boolean delete(String namespace, String name) {
