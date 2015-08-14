@@ -85,6 +85,15 @@
       <artifactId>annotations</artifactId>
       <scope>provided</scope>
     </dependency>
+
+    <!--org.apache.hadoop.mapreduce.InputFormat in DaoView-->
+    <!-- Configuration in DaoView-->
+    <dependency>
+      <groupId>org.kitesdk</groupId>
+      <artifactId>${artifact.hadoop-deps}</artifactId>
+      <type>pom</type>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 
 </project>

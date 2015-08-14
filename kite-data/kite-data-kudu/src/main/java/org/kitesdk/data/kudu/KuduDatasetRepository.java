@@ -38,7 +38,7 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
 
   @Override
   public <E> RandomAccessDataset<E> create(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
-    return null;
+    return new KuduDataset<E>(namespace, name, descriptor, type);
   }
 
   @Override

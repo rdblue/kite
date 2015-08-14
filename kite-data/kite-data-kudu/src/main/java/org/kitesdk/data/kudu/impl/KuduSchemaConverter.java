@@ -108,6 +108,7 @@ public class KuduSchemaConverter {
     List<ColumnSchema> columns = Lists.newArrayList();
     if (Schema.Type.RECORD.equals(avroSchema.getType())) {
       for (Schema.Field field : avroSchema.getFields()) {
+        // TODO use partition stratergy to mark keys?
         columns.add(new ColumnSchema.ColumnSchemaBuilder(field.name(),
             convert(field.schema().getType())).build());
       }
