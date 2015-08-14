@@ -35,6 +35,8 @@ import org.kududb.client.KuduSession;
 import org.kududb.client.KuduTable;
 import org.kududb.client.OperationResponse;
 import org.kududb.client.PartialRow;
+import org.kududb.client.SessionConfiguration;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -76,6 +78,7 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
 
     try {
       OperationResponse response = session.apply(buildInsert(entity));
+
       if (response.hasRowError()) {
         throw new DatasetRecordException(response.getRowError().toString());
       }
@@ -100,6 +103,10 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
       }
       handleResults(results);
     }
+  }
+
+  public void setFlushMode(SessionConfiguration.FlushMode flushMode) {
+    this.session.setFlushMode(flushMode);
   }
 
   @Override
