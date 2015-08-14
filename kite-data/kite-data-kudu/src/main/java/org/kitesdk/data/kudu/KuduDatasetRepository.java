@@ -19,12 +19,14 @@ import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.RandomAccessDataset;
 import org.kitesdk.data.spi.AbstractDatasetRepository;
 import org.kududb.client.KuduClient;
+import org.kududb.client.KuduTable;
 
 import java.net.URI;
 import java.util.Collection;
 
 public class KuduDatasetRepository extends AbstractDatasetRepository {
   private KuduClient kuduClient;
+  private KuduTable kuduTable;
   private KuduMetadataProvider metadataProvider;
   private final URI repositoryUri;
 
@@ -36,19 +38,19 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
 
   @Override
   public <E> RandomAccessDataset<E> load(String namespace, String name, Class<E> type) {
-    return new KuduDataset<E>(namespace, name, metadataProvider.load(name), type);
+    return new KuduDataset<E>(namespace, name, kuduClient, kuduTable, metadataProvider.load(name), repositoryUri, type);
   }
 
   @Override
   public <E> RandomAccessDataset<E> create(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
     metadataProvider.create(name, descriptor);
-    return new KuduDataset<E>(namespace, name, descriptor, type);
+    return new KuduDataset<E>(namespace, name, kuduClient, kuduTable, descriptor, repositoryUri, type);
   }
 
   @Override
   public <E> RandomAccessDataset<E> update(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
     // this will throw a not implemented exception
-    return new KuduDataset<E>(namespace, name, metadataProvider.update(name, descriptor), type);
+    return new KuduDataset<E>(namespace, name, kuduClient, kuduTable, metadataProvider.update(name, descriptor), repositoryUri, type);
   }
 
   @Override
