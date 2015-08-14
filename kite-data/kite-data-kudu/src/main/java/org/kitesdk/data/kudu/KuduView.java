@@ -62,11 +62,15 @@ public class KuduView<E> extends AbstractRefinableView<E> implements InputFormat
 
   @Override
   public DatasetReader<E> newReader() {
-    return new KuduBatchReader<E>(dataset.getClient(), dataset.getTable(), this);
+    KuduBatchReader<E> reader = new KuduBatchReader<E>(dataset.getClient(), dataset.getTable(), this);
+    reader.initialize();
+    return reader;
   }
 
   @Override
   public DatasetWriter<E> newWriter() {
-    return new KuduBatchWriter<E>(dataset.getClient(), dataset.getTable(), this);
+    KuduBatchWriter<E> writer = new KuduBatchWriter<E>(dataset.getClient(), dataset.getTable(), this);
+    writer.initialize();
+    return writer;
   }
 }
