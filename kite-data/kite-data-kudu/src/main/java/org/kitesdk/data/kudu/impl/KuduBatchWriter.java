@@ -133,6 +133,12 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
         case BOOL:
           row.addBoolean(ordinal, Conversions.makeBoolean(value));
           break;
+        case INT8:
+          row.addByte(ordinal, Conversions.makeInteger(value).byteValue());
+          break;
+        case INT16:
+          row.addShort(ordinal, Conversions.makeInteger(value).shortValue());
+          break;
         case INT32:
           row.addInt(ordinal, Conversions.makeInteger(value));
           break;
