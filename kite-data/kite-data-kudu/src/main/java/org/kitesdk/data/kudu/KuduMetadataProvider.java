@@ -1,5 +1,5 @@
 /**
- * Copyright 2013 Cloudera Inc.
+ * Copyright 2015 Cloudera Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,20 @@
  */
 package org.kitesdk.data.kudu;
 
-import org.kitesdk.data.DatasetDescriptor;
-import org.kitesdk.data.DatasetIOException;
-import org.kitesdk.data.spi.AbstractMetadataProvider;
-import org.kududb.client.KuduClient;
-
 import java.io.IOException;
 import java.util.Collection;
+
+import org.kitesdk.data.DatasetDescriptor;
+import org.kitesdk.data.DatasetExistsException;
+import org.kitesdk.data.DatasetIOException;
+import org.kitesdk.data.DatasetNotFoundException;
+import org.kitesdk.data.kudu.impl.KuduSchemaConverter;
+import org.kitesdk.data.spi.AbstractMetadataProvider;
+import org.kududb.Schema;
+import org.kududb.client.KuduClient;
+import org.kududb.client.KuduTable;
+
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 public class KuduMetadataProvider extends AbstractMetadataProvider {
   private KuduClient kuduClient;
@@ -32,7 +39,21 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
 
   @Override
   public DatasetDescriptor load(String namespace, String name) {
-    return null;
+    try {
+      if (!exists(name)) {
+        throw new DatasetNotFoundException(
+            String.format("Table [%s] does not exist", name));
+      }
+      KuduTable kuduTable = kuduClient.openTable(name);
+      org.apache.avro.Schema schema = KuduSchemaConverter.convertTable(
+          kuduTable.getName(), kuduTable.getSchema().getColumns(), null);
+      if (schema != null) {
+        return new DatasetDescriptor.Builder().schema(schema).build();
+      }
+      return null;
+    } catch (Exception e) {
+      throw kuduException(e);
+    }
   }
 
   public DatasetDescriptor load(String name) {
@@ -40,8 +61,21 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   }
 
   @Override
-  public DatasetDescriptor create(String namespace, String name, DatasetDescriptor descriptor) {
-    return null;
+  public DatasetDescriptor create(String namespace, String name,
+      DatasetDescriptor descriptor) {
+    Schema kuduSchema = KuduSchemaConverter
+        .convertSchema(descriptor.getSchema());
+    try {
+      if (!exists(name)) {
+        kuduClient.createTable(name, kuduSchema);
+        return descriptor;
+      } else {
+        throw new DatasetExistsException(
+            String.format("Table [%s] already exists", name));
+      }
+    } catch (Exception e) {
+      throw kuduException(e);
+    }
   }
 
   public DatasetDescriptor create(String name, DatasetDescriptor descriptor) {
@@ -49,8 +83,9 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   }
 
   @Override
-  public DatasetDescriptor update(String namespace, String name, DatasetDescriptor descriptor) {
-    return null;
+  public DatasetDescriptor update(String namespace, String name,
+      DatasetDescriptor descriptor) {
+    throw new NotImplementedException();
   }
 
   public DatasetDescriptor update(String name, DatasetDescriptor descriptor) {
@@ -104,9 +139,12 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
 
   /**
    * Helper method to throw a DatasetIOException for when Kudu misbehaves
-   * @param e Exception from Kudu client
+   * 
+   * @param e
+   *          Exception from Kudu client
    */
   private DatasetIOException kuduException(Exception e) {
-    return new DatasetIOException("Could not communicate with kudu master", new IOException(e.getMessage()));
+    return new DatasetIOException("Could not communicate with kudu master",
+        new IOException(e.getMessage()));
   }
 }
