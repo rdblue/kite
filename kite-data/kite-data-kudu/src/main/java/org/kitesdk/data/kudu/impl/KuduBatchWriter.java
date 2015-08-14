@@ -191,6 +191,7 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
   private void handleResults(List<BatchResponse> results) {
     for (BatchResponse response : results) {
       if (response.hasRowErrors()) {
+        this.state = ReaderWriterState.ERROR;
         throw new DatasetOperationException(
             "Write operation failed: " + response.getRowErrors());
       }
