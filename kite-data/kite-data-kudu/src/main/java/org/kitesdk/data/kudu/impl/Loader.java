@@ -28,8 +28,8 @@ public class Loader implements Loadable {
   @Override
   public void load() {
     Registration.register(
-      new URIPattern("kudu::master"),
-      new URIPattern("kudu::master/:dataset"),
+      new URIPattern("kudu::master?namespace=default"),
+      new URIPattern("kudu::master/:dataset?namespace=default"),
       new OptionBuilder<DatasetRepository>() {
 
         @Override

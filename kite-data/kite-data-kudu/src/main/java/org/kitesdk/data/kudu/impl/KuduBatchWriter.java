@@ -17,7 +17,6 @@
 package org.kitesdk.data.kudu.impl;
 
 import com.google.common.base.Preconditions;
-import org.apache.avro.util.Utf8;
 import org.kitesdk.data.DatasetOperationException;
 import org.kitesdk.data.DatasetRecordException;
 import org.kitesdk.data.Flushable;
@@ -25,22 +24,14 @@ import org.kitesdk.data.View;
 import org.kitesdk.data.kudu.KuduUtil;
 import org.kitesdk.data.spi.AbstractDatasetWriter;
 import org.kitesdk.data.spi.AbstractRefinableView;
-import org.kitesdk.data.spi.Conversions;
 import org.kitesdk.data.spi.EntityAccessor;
 import org.kitesdk.data.spi.ReaderWriterState;
 import org.kududb.ColumnSchema;
 import org.kududb.client.BatchResponse;
-import org.kududb.client.Insert;
 import org.kududb.client.KuduClient;
 import org.kududb.client.KuduSession;
 import org.kududb.client.KuduTable;
 import org.kududb.client.OperationResponse;
-import org.kududb.client.PartialRow;
-import org.kududb.client.SessionConfiguration;
-
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.List;
 
 public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flushable {

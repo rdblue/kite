@@ -92,7 +92,7 @@ public class KuduUtil {
       }
     }
 
-    return null;
+    return insert;
   }
 
   private static byte[] copyFromByteBuffer(ByteBuffer buf) {
