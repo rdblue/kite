@@ -19,7 +19,7 @@ public class KuduDataset<E> extends AbstractDataset<E> implements
   private final String name;
   //private final DatasetDescriptor descriptor;
 
-  public <E> KuduDataset(String namespace, String name,
+  public KuduDataset(String namespace, String name,
       DatasetDescriptor descriptor, Class<E> type) {
     super(type, descriptor.getSchema());
     Preconditions.checkArgument(
