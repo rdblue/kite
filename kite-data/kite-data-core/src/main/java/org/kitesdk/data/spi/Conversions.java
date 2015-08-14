@@ -74,6 +74,17 @@ public class Conversions {
         "Cannot convert using schema: " + schema.toString(true));
   }
 
+  public static Boolean makeBoolean(Object value) {
+    if (value instanceof Boolean) {
+      return (Boolean) value;
+    } else if (value instanceof String) {
+      return Boolean.valueOf((String) value);
+    } else {
+      throw new RuntimeException(
+          "Cannot coerce \"" + value + "\" to Integer");
+    }
+  }
+
   public static Long makeLong(Object value) {
     if (value instanceof Number) {
       return ((Number) value).longValue();
