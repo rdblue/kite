@@ -15,6 +15,7 @@ package org.kitesdk.data.kudu; /**
  */
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
+import org.kitesdk.data.RandomAccessDataset;
 import org.kitesdk.data.spi.AbstractDatasetRepository;
 import org.kududb.client.KuduClient;
 
@@ -31,17 +32,17 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
   }
 
   @Override
-  public <E> Dataset<E> load(String namespace, String name, Class<E> type) {
+  public <E> RandomAccessDataset<E> load(String namespace, String name, Class<E> type) {
     return null;
   }
 
   @Override
-  public <E> Dataset<E> create(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
+  public <E> RandomAccessDataset<E> create(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
     return null;
   }
 
   @Override
-  public <E> Dataset<E> update(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
+  public <E> RandomAccessDataset<E> update(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
     return null;
   }
 
