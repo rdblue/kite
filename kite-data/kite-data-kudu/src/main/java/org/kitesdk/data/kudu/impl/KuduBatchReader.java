@@ -16,10 +16,10 @@
 
 package org.kitesdk.data.kudu.impl;
 
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterators;
+import org.kitesdk.shaded.com.google.common.base.Function;
+import org.kitesdk.shaded.com.google.common.base.Preconditions;
+import org.kitesdk.shaded.com.google.common.base.Predicate;
+import org.kitesdk.shaded.com.google.common.collect.Iterators;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.IndexedRecord;
