@@ -18,10 +18,12 @@ package org.kitesdk.data.kudu;
 import java.io.IOException;
 import java.util.Collection;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetExistsException;
-import org.kitesdk.data.DatasetIOException;
 import org.kitesdk.data.DatasetNotFoundException;
+import org.kitesdk.data.DatasetOperationException;
 import org.kitesdk.data.kudu.impl.KuduSchemaConverter;
 import org.kitesdk.data.spi.AbstractMetadataProvider;
 import org.kududb.Schema;
@@ -45,12 +47,15 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
             String.format("Table [%s] does not exist", name));
       }
       KuduTable kuduTable = kuduClient.openTable(name);
-      org.apache.avro.Schema schema = KuduSchemaConverter.convertTable(
-          kuduTable.getName(), kuduTable.getSchema().getColumns(), null);
-      if (schema != null) {
-        return new DatasetDescriptor.Builder().schema(schema).build();
-      }
-      return null;
+
+      DatasetDescriptor.Builder builder = new DatasetDescriptor.Builder();
+
+      builder.schema(KuduSchemaConverter.schemaFor(
+          kuduTable.getName(), kuduTable.getSchema().getColumns()));
+      builder.partitionStrategy(KuduSchemaConverter.strategyFor(
+          kuduTable.getSchema().getColumns()));
+
+      return builder.build();
     } catch (Exception e) {
       throw kuduException(e);
     }
@@ -63,8 +68,11 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   @Override
   public DatasetDescriptor create(String namespace, String name,
       DatasetDescriptor descriptor) {
+    Preconditions.checkArgument(descriptor.isPartitioned(),
+        "Cannot use Kudu without a partition strategy");
+
     Schema kuduSchema = KuduSchemaConverter
-        .convertSchema(descriptor.getSchema());
+        .convertSchema(descriptor.getSchema(), descriptor.getPartitionStrategy());
     try {
       if (!exists(name)) {
         kuduClient.createTable(name, kuduSchema);
@@ -85,7 +93,7 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   @Override
   public DatasetDescriptor update(String namespace, String name,
       DatasetDescriptor descriptor) {
-    throw new NotImplementedException();
+    throw new UnsupportedOperationException("Kudu doesn't support update");
   }
 
   public DatasetDescriptor update(String name, DatasetDescriptor descriptor) {
@@ -121,7 +129,7 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
 
   @Override
   public Collection<String> namespaces() {
-    return null;
+    return ImmutableList.of("default");
   }
 
   @Override
@@ -134,7 +142,7 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   }
 
   public Collection<String> datasets() {
-    return datasets(null);
+    return datasets("default");
   }
 
   /**
@@ -143,8 +151,8 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
    * @param e
    *          Exception from Kudu client
    */
-  private DatasetIOException kuduException(Exception e) {
-    return new DatasetIOException("Could not communicate with kudu master",
-        new IOException(e.getMessage()));
+  private DatasetOperationException kuduException(Exception e) {
+    return new DatasetOperationException(
+        "Could not communicate with kudu master", e);
   }
 }
