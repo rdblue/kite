@@ -166,6 +166,8 @@ public class KuduSchemaConverter {
         return Type.FLOAT;
       case INT:
         return Type.INT32;
+      case LONG:
+        return Type.INT64;
       case STRING:
         return Type.STRING;
     }
