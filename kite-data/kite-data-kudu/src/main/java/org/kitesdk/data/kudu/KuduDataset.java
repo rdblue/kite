@@ -145,4 +145,12 @@ public class KuduDataset<E> extends AbstractDataset<E>
   public URI getUri() {
     return uri;
   }
+
+  protected KuduClient getClient() {
+    return kuduClient;
+  }
+
+  protected KuduTable getTable() {
+    return kuduTable;
+  }
 }

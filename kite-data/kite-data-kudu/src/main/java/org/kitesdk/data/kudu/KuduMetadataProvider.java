@@ -15,11 +15,8 @@
  */
 package org.kitesdk.data.kudu;
 
-import java.io.IOException;
 import java.util.Collection;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetExistsException;
 import org.kitesdk.data.DatasetNotFoundException;
@@ -30,7 +27,8 @@ import org.kududb.Schema;
 import org.kududb.client.KuduClient;
 import org.kududb.client.KuduTable;
 
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 public class KuduMetadataProvider extends AbstractMetadataProvider {
   private KuduClient kuduClient;
@@ -50,10 +48,10 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
 
       DatasetDescriptor.Builder builder = new DatasetDescriptor.Builder();
 
-      builder.schema(KuduSchemaConverter.schemaFor(
-          kuduTable.getName(), kuduTable.getSchema().getColumns()));
-      builder.partitionStrategy(KuduSchemaConverter.strategyFor(
+      builder.schema(KuduSchemaConverter.schemaFor(kuduTable.getName(),
           kuduTable.getSchema().getColumns()));
+      builder.partitionStrategy(
+          KuduSchemaConverter.strategyFor(kuduTable.getSchema().getColumns()));
 
       return builder.build();
     } catch (Exception e) {
@@ -71,8 +69,8 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
     Preconditions.checkArgument(descriptor.isPartitioned(),
         "Cannot use Kudu without a partition strategy");
 
-    Schema kuduSchema = KuduSchemaConverter
-        .convertSchema(descriptor.getSchema(), descriptor.getPartitionStrategy());
+    Schema kuduSchema = KuduSchemaConverter.convertSchema(
+        descriptor.getSchema(), descriptor.getPartitionStrategy());
     try {
       if (!exists(name)) {
         kuduClient.createTable(name, kuduSchema);
@@ -102,11 +100,15 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
 
   @Override
   public boolean delete(String namespace, String name) {
-    try {
-      kuduClient.deleteTable(name);
-      return true;
-    } catch (Exception e) {
-      throw kuduException(e);
+    if (exists(name)) {
+      try {
+        kuduClient.deleteTable(name);
+        return true;
+      } catch (Exception e) {
+        throw kuduException(e);
+      }
+    } else {
+      return false;
     }
   }
 
