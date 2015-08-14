@@ -19,15 +19,18 @@ package org.kitesdk.data.kudu;
 import com.google.common.base.Preconditions;
 import org.apache.avro.generic.IndexedRecord;
 import org.kitesdk.data.DatasetDescriptor;
+import org.kitesdk.data.DatasetOperationException;
+import org.kitesdk.data.DatasetRecordException;
 import org.kitesdk.data.Key;
 import org.kitesdk.data.RandomAccessDataset;
 import org.kitesdk.data.RefinableView;
-import org.kitesdk.data.kudu.impl.KuduBatchWriter;
 import org.kitesdk.data.spi.AbstractDataset;
 import org.kitesdk.data.spi.AbstractRefinableView;
 import org.kitesdk.data.spi.Constraints;
 import org.kududb.client.KuduClient;
+import org.kududb.client.KuduSession;
 import org.kududb.client.KuduTable;
+import org.kududb.client.OperationResponse;
 import org.kududb.client.SessionConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +42,7 @@ public class KuduDataset<E> extends AbstractDataset<E>
   private final String namespace;
   private final String name;
   private final KuduView<E> unbounded;
+  private final KuduSession session;
   private final DatasetDescriptor descriptor;
   private final URI uri;
   private final KuduClient kuduClient;
@@ -58,6 +62,8 @@ public class KuduDataset<E> extends AbstractDataset<E>
     this.descriptor = descriptor;
     this.uri = uri;
     this.kuduClient = kuduClient;
+    this.session = kuduClient.newSession();
+    this.session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC);
     this.kuduTable = kuduTable;
     this.unbounded = new KuduView<E>(this, type);
   }
@@ -79,12 +85,24 @@ public class KuduDataset<E> extends AbstractDataset<E>
 
   @Override
   public boolean put(E entity) {
-    KuduBatchWriter<E> batchWriter = new KuduBatchWriter<E>(kuduClient,
-        kuduTable, unbounded);
-    batchWriter.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC);
-    batchWriter.write(entity);
-    batchWriter.flush();
-    return true;
+    Preconditions.checkState(!session.isClosed(), "Dataset session is closed");
+
+    if (!unbounded.includes(entity)) {
+      throw new DatasetRecordException(String
+          .format("Cannot write '%s': not in %s", entity, unbounded.getUri()));
+    }
+
+    try {
+      OperationResponse response = session.apply(KuduUtil
+          .buildInsert(entity, kuduTable, unbounded.getAccessor()));
+
+      if (response.hasRowError()) {
+        throw new DatasetRecordException(response.getRowError().toString());
+      }
+      return true;
+    } catch (Exception e) {
+      throw new DatasetOperationException("Write failed", e);
+    }
   }
 
   @Override

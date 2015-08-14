@@ -22,6 +22,7 @@ import org.kitesdk.data.DatasetOperationException;
 import org.kitesdk.data.DatasetRecordException;
 import org.kitesdk.data.Flushable;
 import org.kitesdk.data.View;
+import org.kitesdk.data.kudu.KuduUtil;
 import org.kitesdk.data.spi.AbstractDatasetWriter;
 import org.kitesdk.data.spi.AbstractRefinableView;
 import org.kitesdk.data.spi.Conversions;
@@ -77,7 +78,8 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
     }
 
     try {
-      OperationResponse response = session.apply(buildInsert(entity));
+      OperationResponse response = session
+          .apply(KuduUtil.buildInsert(entity, table, accessor));
 
       if (response.hasRowError()) {
         throw new DatasetRecordException(response.getRowError().toString());
@@ -105,10 +107,6 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
     }
   }
 
-  public void setFlushMode(SessionConfiguration.FlushMode flushMode) {
-    this.session.setFlushMode(flushMode);
-  }
-
   @Override
   public boolean isOpen() {
     return state == ReaderWriterState.OPEN;
@@ -127,78 +125,6 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
           "Failed to flush session: " + session, e);
     }
     handleResults(results);
-  }
-
-  private Insert buildInsert(E entity) {
-    Insert insert = table.newInsert();
-    PartialRow row = insert.getRow();
-
-    for (int ordinal = 0; ordinal < columns.size(); ordinal += 1) {
-      ColumnSchema column = columns.get(ordinal);
-      Object value = accessor.get(entity, column.getName());
-      switch (column.getType()) {
-        case BOOL:
-          row.addBoolean(ordinal, Conversions.makeBoolean(value));
-          break;
-        case INT8:
-          row.addByte(ordinal, Conversions.makeInteger(value).byteValue());
-          break;
-        case INT16:
-          row.addShort(ordinal, Conversions.makeInteger(value).shortValue());
-          break;
-        case INT32:
-          row.addInt(ordinal, Conversions.makeInteger(value));
-          break;
-        case INT64:
-          row.addLong(ordinal, Conversions.makeLong(value));
-          break;
-        case FLOAT:
-          row.addFloat(ordinal, Conversions.makeFloat(value));
-          break;
-        case DOUBLE:
-          row.addDouble(ordinal, Conversions.makeDouble(value));
-          break;
-        case STRING:
-          if (value instanceof String) {
-            row.addString(ordinal, (String) value);
-          } else if (value instanceof Utf8) {
-            row.addStringUtf8(ordinal, Arrays.copyOf(
-                ((Utf8) value).getBytes(),
-                ((Utf8) value).getByteLength()));
-          } else if (value instanceof byte[]) {
-            row.addStringUtf8(ordinal, Arrays.copyOf(
-                (byte[]) value, ((byte[]) value).length));
-          } else {
-            row.addString(ordinal, Conversions.makeString(value));
-          }
-          break;
-        case BINARY:
-          // need to defensively copy binary data
-          if (value instanceof ByteBuffer) {
-            row.addBinary(ordinal, copyFromByteBuffer((ByteBuffer) value));
-          } else if (value instanceof byte[]) {
-            row.addBinary(ordinal, Arrays.copyOf(
-                (byte[]) value, ((byte[]) value).length));
-          } else if (value instanceof String) {
-              row.addBinary(ordinal,
-                  ((String) value).getBytes(StandardCharsets.UTF_8));
-          } else if (value instanceof Utf8) {
-            row.addBinary(ordinal, Arrays.copyOf(
-                ((Utf8) value).getBytes(),
-                ((Utf8) value).getByteLength()));
-          }
-          break;
-      }
-    }
-
-    return null;
-  }
-
-  private byte[] copyFromByteBuffer(ByteBuffer buf) {
-    byte[] copy = new byte[buf.remaining()];
-    buf.mark();
-    buf.get(copy).reset();
-    return copy;
   }
 
   private void handleResults(List<BatchResponse> results) {
