@@ -16,46 +16,38 @@
 
 package org.kitesdk.data.kudu.impl;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
-
-import javax.annotation.Nullable;
-
-import org.apache.avro.Schema;
-import org.codehaus.jackson.node.NullNode;
-import org.kitesdk.data.PartitionStrategy;
-import org.kitesdk.data.impl.Accessor;
-import org.kitesdk.data.spi.FieldPartitioner;
-import org.kitesdk.data.spi.SchemaUtil;
-import org.kududb.ColumnSchema;
-import org.kududb.Type;
-import org.w3c.dom.TypeInfo;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import org.apache.avro.Schema;
+import org.codehaus.jackson.node.NullNode;
+import org.kitesdk.data.PartitionStrategy;
+import org.kitesdk.data.impl.Accessor;
+import org.kitesdk.data.spi.FieldPartitioner;
+import org.kududb.ColumnSchema;
+import org.kududb.Type;
+
+import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 
 public class KuduSchemaConverter {
-  private static final ImmutableMap<Type, Schema.Type> KUDU_TO_AVRO_TYPE =
-      ImmutableMap.<Type, Schema.Type>builder()
-      .put(Type.BINARY, Schema.Type.BYTES)
-          .put(Type.BOOL, Schema.Type.BOOLEAN)
-          .put(Type.DOUBLE, Schema.Type.DOUBLE)
-          .put(Type.FLOAT, Schema.Type.FLOAT)
+  private static final ImmutableMap<Type, Schema.Type> KUDU_TO_AVRO_TYPE = ImmutableMap
+      .<Type, Schema.Type>builder().put(Type.BINARY, Schema.Type.BYTES)
+      .put(Type.BOOL, Schema.Type.BOOLEAN)
+      .put(Type.DOUBLE, Schema.Type.DOUBLE).put(Type.FLOAT, Schema.Type.FLOAT)
           // TODO: Is this safe?
-          .put(Type.INT16, Schema.Type.INT)
-          .put(Type.INT32, Schema.Type.INT)
-          .put(Type.INT64, Schema.Type.LONG)
+      .put(Type.INT16, Schema.Type.INT).put(Type.INT32, Schema.Type.INT).put(
+          Type.INT64, Schema.Type.LONG)
           // TODO: Is this safe?
-          .put(Type.INT8, Schema.Type.INT)
-          .put(Type.STRING, Schema.Type.STRING)
+      .put(Type.INT8, Schema.Type.INT).put(Type.STRING, Schema.Type.STRING)
           // TODO: Wait for AVRO-739 in 1.8.0
           //.put(Type.TIMESTAMP, Schema.Type.TIMESTAMP)
-          .build();
+      .build();
 
   private static final Schema NULL = Schema.create(Schema.Type.NULL);
   @VisibleForTesting
@@ -63,52 +55,44 @@ public class KuduSchemaConverter {
   @VisibleForTesting
   static final Collection<String[]> NO_REQUIRED_FIELDS = ImmutableList.of();
 
-  public static Schema convertTable(String table, Collection<ColumnSchema> columns,
-                                    @Nullable PartitionStrategy strategy) {
+  public static Schema convertTable(String table,
+      Collection<ColumnSchema> columns, @Nullable PartitionStrategy strategy) {
     ArrayList<String> fieldNames = Lists.newArrayList();
     ArrayList<Type> fieldTypes = Lists.newArrayList();
     LinkedList<String> start = Lists.newLinkedList();
     Collection<String[]> requiredFields = requiredFields(strategy);
-
     List<Schema.Field> fields = Lists.newArrayList();
+
     for (ColumnSchema column : columns) {
-      // pass null for the initial path to exclude the table name
       Type type = column.getType();
       fieldNames.add(column.getName());
       fieldTypes.add(type);
       fields.add(convertField(start, column.getName(), type, requiredFields));
     }
 
-    /*StructTypeInfo struct = new StructTypeInfo();
-    struct.setAllStructFieldNames(fieldNames);
-    struct.setAllStructFieldTypeInfos(fieldTypes);
-
-    Schema recordSchema = Schema.createRecord(table, doc(struct), null, false);
+    Schema recordSchema = Schema.createRecord(table, "", null, false);
     recordSchema.setFields(fields);
-
-    recordSchema.getFields().get(0).schema().getType()*/
-    return null;
+    return recordSchema;
   }
 
   private static Schema.Field convertField(LinkedList<String> path, String name,
-                                           Type type,
-                                           Collection<String[]> required) {
+      Type type, Collection<String[]> required) {
     // filter the required fields with the current name
-    Collection<String[]> matchingRequired = filterByStartsWith(required, path, name);
+    Collection<String[]> matchingRequired = filterByStartsWith(required, path,
+        name);
 
     Schema schema = convert(path, name, type, matchingRequired);
 
-    return new Schema.Field(name, schema, doc(type),
-         null);
+    return new Schema.Field(name, schema, doc(type), null);
   }
 
   @VisibleForTesting
-  static Schema convert(LinkedList<String> path, String name,
-                        Type type, Collection<String[]> required) {
+  static Schema convert(LinkedList<String> path, String name, Type type,
+      Collection<String[]> required) {
     Preconditions.checkArgument(KUDU_TO_AVRO_TYPE.containsKey(type),
         "Cannot convert unsupported type: %s", type.name());
     Schema.Type avroType = KUDU_TO_AVRO_TYPE.get(type);
-      return Schema.create(avroType);
+    return Schema.create(avroType);
   }
 
   @VisibleForTesting
@@ -121,21 +105,38 @@ public class KuduSchemaConverter {
   }
 
   public static org.kududb.Schema convertSchema(Schema avroSchema) {
-    /*List<FieldSchema> columns = Lists.newArrayList();
+    List<ColumnSchema> columns = Lists.newArrayList();
     if (Schema.Type.RECORD.equals(avroSchema.getType())) {
       for (Schema.Field field : avroSchema.getFields()) {
-        columns.add(new FieldSchema(
-            field.name(), convert(field.schema()).getTypeName(), field.doc()));
+        columns.add(new ColumnSchema.ColumnSchemaBuilder(field.name(),
+            convert(field.schema().getType())).build());
       }
     } else {
-      columns.add(new FieldSchema(
-          "column", convert(avroSchema).getTypeName(), avroSchema.getDoc()));
+      columns.add(new ColumnSchema.ColumnSchemaBuilder("column",
+          convert(avroSchema.getType())).build());
     }
-    return columns;
-    */
-    return null;
+    return new org.kududb.Schema(columns);
   }
-  
+
+  private static Type convert(Schema.Type type) {
+    switch (type) {
+    case BYTES:
+      return Type.BINARY;
+    case BOOLEAN:
+      return Type.BOOL;
+    case DOUBLE:
+      return Type.DOUBLE;
+    case FLOAT:
+      return Type.FLOAT;
+    case INT:
+      return Type.INT32;
+    case STRING:
+      return Type.STRING;
+    }
+    throw new IllegalArgumentException(
+        "Could not convert Avro type " + type.name() + " to Kudu type");
+  }
+
   private static Collection<String[]> filterByStartsWith(
       Collection<String[]> fields, LinkedList<String> path, String name) {
     path.addLast(name);
@@ -171,13 +172,15 @@ public class KuduSchemaConverter {
   }
 
   @SuppressWarnings("deprecation")
-  private static Collection<String[]> requiredFields(@Nullable PartitionStrategy strategy) {
+  private static Collection<String[]> requiredFields(
+      @Nullable PartitionStrategy strategy) {
     if (strategy == null) {
       return NO_REQUIRED_FIELDS;
     }
 
     List<String[]> requiredFields = Lists.newArrayList();
-    for (FieldPartitioner fp : Accessor.getDefault().getFieldPartitioners(strategy)) {
+    for (FieldPartitioner fp : Accessor.getDefault()
+        .getFieldPartitioners(strategy)) {
       // source name is not present for provided partitioners
       if (fp.getSourceName() != null) {
         requiredFields.add(fp.getSourceName().split("\\."));
