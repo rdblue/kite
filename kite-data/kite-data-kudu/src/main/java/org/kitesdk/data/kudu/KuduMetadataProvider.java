@@ -31,6 +31,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 public class KuduMetadataProvider extends AbstractMetadataProvider {
+  private static final String DEFAULT_NS = "default";
   private KuduClient kuduClient;
 
   KuduMetadataProvider(KuduClient kuduClient) {
@@ -60,7 +61,7 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   }
 
   public DatasetDescriptor load(String name) {
-    return load(null, name);
+    return load(DEFAULT_NS, name);
   }
 
   @Override
@@ -85,7 +86,7 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   }
 
   public DatasetDescriptor create(String name, DatasetDescriptor descriptor) {
-    return create(null, name, descriptor);
+    return create(DEFAULT_NS, name, descriptor);
   }
 
   @Override
@@ -95,7 +96,7 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   }
 
   public DatasetDescriptor update(String name, DatasetDescriptor descriptor) {
-    return update(null, name, descriptor);
+    return update(DEFAULT_NS, name, descriptor);
   }
 
   @Override
@@ -113,7 +114,7 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   }
 
   public boolean delete(String name) {
-    return delete(null, name);
+    return delete(DEFAULT_NS, name);
   }
 
   @Override
@@ -126,12 +127,12 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   }
 
   public boolean exists(String name) {
-    return exists(null, name);
+    return exists(DEFAULT_NS, name);
   }
 
   @Override
   public Collection<String> namespaces() {
-    return ImmutableList.of("default");
+    return ImmutableList.of(DEFAULT_NS);
   }
 
   @Override
@@ -144,7 +145,7 @@ public class KuduMetadataProvider extends AbstractMetadataProvider {
   }
 
   public Collection<String> datasets() {
-    return datasets("default");
+    return datasets(DEFAULT_NS);
   }
 
   /**

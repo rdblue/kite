@@ -43,7 +43,8 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
   @Override
   public <E> RandomAccessDataset<E> load(String namespace, String name,
       Class<E> type) {
-    return new KuduDataset<E>(namespace, name, kuduClient, getKuduTable(name),
+    return new KuduDataset<E>(namespace, name, kuduClient,
+        getKuduTable(namespace, name),
         metadataProvider.load(namespace, name), datasetUri(name), type);
   }
 
@@ -51,20 +52,20 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
   public <E> RandomAccessDataset<E> create(String namespace, String name,
       DatasetDescriptor descriptor, Class<E> type) {
     DatasetDescriptor created = metadataProvider.create(namespace, name, descriptor);
-    return new KuduDataset<E>(namespace, name, kuduClient, getKuduTable(name),
-        created, datasetUri(name), type);
+    return new KuduDataset<E>(namespace, name, kuduClient,
+        getKuduTable(namespace, name), created, datasetUri(name), type);
   }
 
   @Override
   public <E> RandomAccessDataset<E> update(String namespace, String name,
       DatasetDescriptor descriptor, Class<E> type) {
     DatasetDescriptor updated = metadataProvider.update(namespace, name, descriptor);
-    return new KuduDataset<E>(namespace, name, kuduClient, getKuduTable(name),
-        updated, datasetUri(name), type);
+    return new KuduDataset<E>(namespace, name, kuduClient,
+        getKuduTable(namespace, name), updated, datasetUri(name), type);
   }
 
-  private KuduTable getKuduTable(String name) {
-    if (!metadataProvider.exists(name)) {
+  private KuduTable getKuduTable(String namespace, String name) {
+    if (!metadataProvider.exists(namespace, name)) {
       throw new DatasetNotFoundException(String.format("Table [%s] not found", name));
     }
     try {
@@ -77,12 +78,12 @@ public class KuduDatasetRepository extends AbstractDatasetRepository {
 
   @Override
   public boolean delete(String namespace, String name) {
-    return metadataProvider.delete(name);
+    return metadataProvider.delete(namespace, name);
   }
 
   @Override
   public boolean exists(String namespace, String name) {
-    return metadataProvider.exists(name);
+    return metadataProvider.exists(namespace, name);
   }
 
   @Override
