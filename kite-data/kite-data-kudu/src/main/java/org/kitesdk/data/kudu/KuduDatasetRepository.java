@@ -1,4 +1,4 @@
-package org.kitesdk.data.kudu; /**
+ /**
  * Copyright 2015 Cloudera Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +13,7 @@ package org.kitesdk.data.kudu; /**
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.kitesdk.data.kudu;
 import org.kitesdk.data.Dataset;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.RandomAccessDataset;
@@ -24,46 +25,50 @@ import java.util.Collection;
 
 public class KuduDatasetRepository extends AbstractDatasetRepository {
   private KuduClient kuduClient;
+  private KuduMetadataProvider metadataProvider;
   private final URI repositoryUri;
 
   KuduDatasetRepository(KuduClient kuduClient, URI repositoryUri) {
     this.kuduClient = kuduClient;
     this.repositoryUri = repositoryUri;
+    this.metadataProvider = new KuduMetadataProvider(kuduClient);
   }
 
   @Override
   public <E> RandomAccessDataset<E> load(String namespace, String name, Class<E> type) {
-    return null;
+    return new KuduDataset<E>(namespace, name, metadataProvider.load(name), type);
   }
 
   @Override
   public <E> RandomAccessDataset<E> create(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
+    metadataProvider.create(name, descriptor);
     return new KuduDataset<E>(namespace, name, descriptor, type);
   }
 
   @Override
   public <E> RandomAccessDataset<E> update(String namespace, String name, DatasetDescriptor descriptor, Class<E> type) {
-    return null;
+    // this will throw a not implemented exception
+    return new KuduDataset<E>(namespace, name, metadataProvider.update(name, descriptor), type);
   }
 
   @Override
   public boolean delete(String namespace, String name) {
-    return false;
+    return metadataProvider.delete(name);
   }
 
   @Override
   public boolean exists(String namespace, String name) {
-    return false;
+    return metadataProvider.exists(name);
   }
 
   @Override
   public Collection<String> namespaces() {
-    return null;
+    return metadataProvider.namespaces();
   }
 
   @Override
   public Collection<String> datasets(String namespace) {
-    return null;
+    return metadataProvider.datasets();
   }
 
   @Override
