@@ -16,7 +16,10 @@
 
 package org.kitesdk.data.kudu.impl;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterators;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.IndexedRecord;
@@ -33,6 +36,7 @@ import org.kududb.client.KuduScanner;
 import org.kududb.client.KuduTable;
 import org.kududb.client.RowResult;
 import org.kududb.client.RowResultIterator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -40,20 +44,18 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
 
   private final KuduClient client;
   private final KuduTable table;
-  private final View<E> view;
-  private final Schema schema;
-  private final Class<E> recordClass;
+  private final EntityAccessor<E> accessor;
+  private final Predicate<E> entityPredicate;
   private ReaderWriterState state = ReaderWriterState.NEW;
   private KuduScanner scanner = null;
-  private RowResultIterator currentRows = null;
+  private Iterator<E> currentRows = null;
 
   public KuduBatchReader(KuduClient client, KuduTable table, View<E> view) {
     this.client = client;
     this.table = table;
-    this.view = view;
-    EntityAccessor<E> accessor = ((AbstractRefinableView<E>) view).getAccessor();
-    this.schema = accessor.getReadSchema();
-    this.recordClass = accessor.getType();
+    this.accessor = ((AbstractRefinableView<E>) view).getAccessor();
+    this.entityPredicate = ((AbstractRefinableView<E>) view).getConstraints()
+        .toEntityPredicate(accessor);
   }
 
   @Override
@@ -74,10 +76,13 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
       while (true) {
         if (currentRows == null) {
           if (scanner.hasMoreRows()) {
-            this.currentRows = scanner.nextRows();
-            if (currentRows == null) {
+            RowResultIterator rows = scanner.nextRows();
+            if (rows == null) {
               return false;
             }
+            this.currentRows = Iterators.filter(Iterators.transform(rows,
+                new ToAvro<E>(accessor.getReadSchema(), accessor.getType())),
+                entityPredicate);
           } else {
             return false;
           }
@@ -103,7 +108,7 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
       throw new NoSuchElementException();
     }
 
-    return makeRecord(currentRows.next());
+    return currentRows.next();
   }
 
   @Override
@@ -125,73 +130,88 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
     return state == ReaderWriterState.OPEN;
   }
 
-  private E makeRecord(RowResult result) {
-    E record = newRecordInstance();
+  private static class ToAvro<E> implements Function<RowResult, E> {
+    private final Schema schema;
+    private final Class<E> recordClass;
 
-    if (record instanceof IndexedRecord) {
-      fillIndexed(result, (IndexedRecord) record);
-    } else {
-      fillReflect(result, record);
+    public ToAvro(Schema schema, Class<E> recordClass) {
+      this.schema = schema;
+      this.recordClass = recordClass;
     }
 
-    return record;
-  }
-
-  private void fillIndexed(RowResult result, IndexedRecord record) {
-    List<ColumnSchema> columns = result.getColumnProjection().getColumns();
-    for (int ordinal = 0; ordinal < columns.size(); ordinal += 1) {
-      ColumnSchema column = columns.get(ordinal);
-      Object value = getValue(column, ordinal, result);
-      int pos = schema.getField(column.getName()).pos();
-      record.put(pos, value);
+    @Override
+    public E apply(RowResult result) {
+      return makeRecord(result);
     }
-  }
 
-  private void fillReflect(RowResult result, Object record) {
-    List<ColumnSchema> columns = result.getColumnProjection().getColumns();
-    for (int ordinal = 0; ordinal < columns.size(); ordinal += 1) {
-      ColumnSchema column = columns.get(ordinal);
-      Object value = getValue(column, ordinal, result);
-      Schema.Field field = schema.getField(column.getName());
-      ReflectData.get().setField(record, field.name(), field.pos(), value);
+    private E makeRecord(RowResult result) {
+      E record = newRecordInstance();
+
+      if (record instanceof IndexedRecord) {
+        fillIndexed(result, (IndexedRecord) record);
+      } else {
+        fillReflect(result, record);
+      }
+
+      return record;
     }
-  }
 
-  private static Object getValue(ColumnSchema column, int ordinal,
-                                 RowResult result) {
-    switch (column.getType()) {
-      case BOOL:
-        return result.getBoolean(ordinal);
-      case INT8:
-        return (int) result.getByte(ordinal);
-      case INT16:
-        return (int) result.getShort(ordinal);
-      case INT32:
-        return result.getInt(ordinal);
-      case INT64:
-        return result.getLong(ordinal);
-      case FLOAT:
-        return result.getFloat(ordinal);
-      case DOUBLE:
-        return result.getDouble(ordinal);
-      case STRING:
-        return result.getString(ordinal);
-      case BINARY:
-        // already a ByteBuffer. fixed is not supported.
-        return result.getBinary(ordinal);
-      default:
-        throw new IllegalArgumentException("Unknown type: " + column);
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private E newRecordInstance() {
-    if (recordClass != GenericData.Record.class && !recordClass.isInterface()) {
-      E record = (E) ReflectData.newInstance(recordClass, schema);
-      if (record != null) {
-        return record;
+    private void fillIndexed(RowResult result, IndexedRecord record) {
+      List<ColumnSchema> columns = result.getColumnProjection().getColumns();
+      for (int ordinal = 0; ordinal < columns.size(); ordinal += 1) {
+        ColumnSchema column = columns.get(ordinal);
+        Object value = getValue(column, ordinal, result);
+        int pos = schema.getField(column.getName()).pos();
+        record.put(pos, value);
       }
     }
-    return (E) new GenericData.Record(schema);
+
+    private void fillReflect(RowResult result, Object record) {
+      List<ColumnSchema> columns = result.getColumnProjection().getColumns();
+      for (int ordinal = 0; ordinal < columns.size(); ordinal += 1) {
+        ColumnSchema column = columns.get(ordinal);
+        Object value = getValue(column, ordinal, result);
+        Schema.Field field = schema.getField(column.getName());
+        ReflectData.get().setField(record, field.name(), field.pos(), value);
+      }
+    }
+
+    private static Object getValue(ColumnSchema column, int ordinal,
+                                   RowResult result) {
+      switch (column.getType()) {
+        case BOOL:
+          return result.getBoolean(ordinal);
+        case INT8:
+          return (int) result.getByte(ordinal);
+        case INT16:
+          return (int) result.getShort(ordinal);
+        case INT32:
+          return result.getInt(ordinal);
+        case INT64:
+          return result.getLong(ordinal);
+        case FLOAT:
+          return result.getFloat(ordinal);
+        case DOUBLE:
+          return result.getDouble(ordinal);
+        case STRING:
+          return result.getString(ordinal);
+        case BINARY:
+          // already a ByteBuffer. fixed is not supported.
+          return result.getBinary(ordinal);
+        default:
+          throw new IllegalArgumentException("Unknown type: " + column);
+      }
+    }
+
+    @SuppressWarnings("unchecked")
+    private E newRecordInstance() {
+      if (recordClass != GenericData.Record.class && !recordClass.isInterface()) {
+        E record = (E) ReflectData.newInstance(recordClass, schema);
+        if (record != null) {
+          return record;
+        }
+      }
+      return (E) new GenericData.Record(schema);
+    }
   }
 }
