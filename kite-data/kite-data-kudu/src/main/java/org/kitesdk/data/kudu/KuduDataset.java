@@ -18,8 +18,8 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 
-public class KuduDataset<E> extends AbstractDataset<E> implements
-    RandomAccessDataset<E> {
+public class KuduDataset<E> extends AbstractDataset<E>
+    implements RandomAccessDataset<E> {
   private final String namespace;
   private final String name;
   private final KuduView<E> unbounded;
@@ -27,11 +27,11 @@ public class KuduDataset<E> extends AbstractDataset<E> implements
   private final URI uri;
   private final KuduClient kuduClient;
   private final KuduTable kuduTable;
-  private static final Logger LOG = LoggerFactory
-      .getLogger(KuduDataset.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KuduDataset.class);
 
-  public KuduDataset(String namespace, String name, KuduClient kuduClient, KuduTable kuduTable,
-      DatasetDescriptor descriptor, URI uri, Class<E> type) {
+  public KuduDataset(String namespace, String name, KuduClient kuduClient,
+      KuduTable kuduTable, DatasetDescriptor descriptor, URI uri,
+      Class<E> type) {
     super(type, descriptor.getSchema());
     Preconditions.checkArgument(
         IndexedRecord.class.isAssignableFrom(type) || type == Object.class,
@@ -63,7 +63,8 @@ public class KuduDataset<E> extends AbstractDataset<E> implements
 
   @Override
   public boolean put(E entity) {
-    KuduBatchWriter<E> batchWriter = new KuduBatchWriter<E>(kuduClient, kuduTable, unbounded);
+    KuduBatchWriter<E> batchWriter = new KuduBatchWriter<E>(kuduClient,
+        kuduTable, unbounded);
     batchWriter.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_SYNC);
     batchWriter.write(entity);
     batchWriter.flush();
@@ -72,7 +73,8 @@ public class KuduDataset<E> extends AbstractDataset<E> implements
 
   @Override
   public long increment(Key key, String fieldName, long amount) {
-    throw new UnsupportedOperationException("increment not supported in kudu currently");
+    throw new UnsupportedOperationException(
+        "increment not supported in kudu currently");
   }
 
   @Override
