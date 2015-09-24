@@ -28,7 +28,6 @@ import java.util.Properties;
 import java.util.Set;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configurable;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.util.Tool;
@@ -50,6 +49,7 @@ import org.kitesdk.cli.commands.JSONImportCommand;
 import org.kitesdk.cli.commands.JSONSchemaCommand;
 import org.kitesdk.cli.commands.ListCommand;
 import org.kitesdk.cli.commands.Log4jConfigCommand;
+import org.kitesdk.cli.commands.MergeParquetCommand;
 import org.kitesdk.cli.commands.ObjectSchemaCommand;
 import org.kitesdk.cli.commands.SchemaCommand;
 import org.kitesdk.cli.commands.ShowRecordsCommand;
@@ -117,6 +117,7 @@ public class Main extends Configured implements Tool {
     jc.addCommand("log4j-config", new Log4jConfigCommand(console));
     jc.addCommand("flume-config", new FlumeConfigCommand(console));
     jc.addCommand("tar-import", new TarImportCommand(console));
+    jc.addCommand("merge-parquet", new MergeParquetCommand(console));
   }
 
   @Override
