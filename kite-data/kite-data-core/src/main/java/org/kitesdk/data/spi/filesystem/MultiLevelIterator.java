@@ -47,7 +47,7 @@ import org.slf4j.LoggerFactory;
  *
  * This effectively flattens a recursive structure to make tasks easier.
  */
-abstract class MultiLevelIterator<T> implements Iterator<List<T>>, Iterable<List<T>> {
+public abstract class MultiLevelIterator<T> implements Iterator<List<T>>, Iterable<List<T>> {
 
   public static final Logger LOG = LoggerFactory.getLogger(MultiLevelIterator.class);
 

@@ -16,24 +16,28 @@
 
 package org.kitesdk.data.kudu.impl;
 
-import org.kitesdk.shaded.com.google.common.base.Function;
-import org.kitesdk.shaded.com.google.common.base.Preconditions;
-import org.kitesdk.shaded.com.google.common.base.Predicate;
-import org.kitesdk.shaded.com.google.common.collect.Iterators;
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.reflect.ReflectData;
 import org.kitesdk.data.DatasetOperationException;
 import org.kitesdk.data.View;
+import org.kitesdk.data.kudu.KeyRanges;
 import org.kitesdk.data.spi.AbstractDatasetReader;
 import org.kitesdk.data.spi.AbstractRefinableView;
 import org.kitesdk.data.spi.EntityAccessor;
+import org.kitesdk.data.spi.Pair;
 import org.kitesdk.data.spi.ReaderWriterState;
 import org.kududb.ColumnSchema;
 import org.kududb.client.KuduClient;
 import org.kududb.client.KuduScanner;
 import org.kududb.client.KuduTable;
+import org.kududb.client.PartialRow;
 import org.kududb.client.RowResult;
 import org.kududb.client.RowResultIterator;
 import java.util.Iterator;
@@ -46,6 +50,7 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
   private final KuduTable table;
   private final EntityAccessor<E> accessor;
   private final Predicate<E> entityPredicate;
+  private final Iterator<Pair<PartialRow, PartialRow>> ranges;
   private ReaderWriterState state = ReaderWriterState.NEW;
   private KuduScanner scanner = null;
   private Iterator<E> currentRows = null;
@@ -56,6 +61,16 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
     this.accessor = ((AbstractRefinableView<E>) view).getAccessor();
     this.entityPredicate = ((AbstractRefinableView<E>) view).getConstraints()
         .toEntityPredicate(accessor);
+    if (view instanceof AbstractRefinableView) {
+      if (!((AbstractRefinableView) view).getConstraints().isUnbounded()) {
+        this.ranges = new KeyRanges(
+            table.getSchema(), (AbstractRefinableView) view).iterator();
+      } else {
+        this.ranges = Iterators.emptyIterator();
+      }
+    } else {
+      this.ranges = Iterators.emptyIterator();
+    }
   }
 
   @Override
@@ -63,8 +78,13 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
     Preconditions.checkState(state == ReaderWriterState.NEW,
         "Cannot initialize reader in state: " + state);
 
-    this.scanner = client.newScannerBuilder(table)
-        .build();
+    // if there is not at least one range, do a full table scan
+    if (ranges.hasNext()) {
+      this.scanner = nextScanner();
+    } else {
+      this.scanner = fullTableScanner();
+    }
+
     this.state = ReaderWriterState.OPEN;
   }
 
@@ -81,8 +101,10 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
               return false;
             }
             this.currentRows = Iterators.filter(Iterators.transform(rows,
-                new ToAvro<E>(accessor.getReadSchema(), accessor.getType())),
+                    new ToAvro<>(accessor.getReadSchema(), accessor.getType())),
                 entityPredicate);
+          } else if (ranges.hasNext()) {
+            this.scanner = nextScanner();
           } else {
             return false;
           }
@@ -213,5 +235,29 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
       }
       return (E) new GenericData.Record(schema);
     }
+  }
+
+  private List<String> columns(Schema schema) {
+    List<String> columns = Lists.newArrayList();
+    for (Schema.Field field : schema.getFields()) {
+      columns.add(field.name());
+    }
+    return columns;
+  }
+
+  private KuduScanner fullTableScanner() {
+    return client.newScannerBuilder(table)
+        .setProjectedColumnNames(columns(accessor.getReadSchema()))
+        .build();
+  }
+
+  private KuduScanner nextScanner() {
+    // if there is not at least one range, do a full table scan
+    Pair<PartialRow, PartialRow> range = ranges.next();
+    return client.newScannerBuilder(table)
+        .setProjectedColumnNames(columns(accessor.getReadSchema()))
+        .lowerBound(range.first())
+        .exclusiveUpperBound(range.second())
+        .build();
   }
 }

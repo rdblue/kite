@@ -107,6 +107,10 @@ public class Constraints {
     return new Constraints(schema, strategy, constraints, provided);
   }
 
+  public PartitionStrategy getPartitionStrategy() {
+    return strategy;
+  }
+
   /**
    * Get a {@link Predicate} for testing entity objects.
    *
@@ -401,13 +405,10 @@ public class Constraints {
   /**
    * Returns the predicate for a named field.
    *
-   * For testing.
-   *
    * @param name a String field name
    * @return a Predicate for the given field, or null if none is set
    */
-  @VisibleForTesting
-  Predicate get(String name) {
+  public Predicate get(String name) {
     return constraints.get(name);
   }
 
@@ -498,7 +499,7 @@ public class Constraints {
   }
 
   @SuppressWarnings("unchecked")
-  static Predicate combine(Predicate left, Predicate right) {
+  public static <T> Predicate<T> combine(Predicate<T> left, Predicate<T> right) {
     if (left == right) {
       return left;
     } else if (left == null) {

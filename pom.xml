@@ -634,6 +634,10 @@
                   <relocation>
                     <pattern>com.google.common</pattern>
                     <shadedPattern>org.kitesdk.shaded.com.google.common</shadedPattern>
+                    <excludes>
+                      <exclude>com.google.common.base.Predicate</exclude>
+                      <exclude>com.google.common.base.Function</exclude>
+                    </excludes>
                   </relocation>
                 </relocations>
               </configuration>
