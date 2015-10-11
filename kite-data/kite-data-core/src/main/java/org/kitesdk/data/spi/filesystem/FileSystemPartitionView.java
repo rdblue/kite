@@ -42,7 +42,7 @@ import org.kitesdk.data.spi.StorageKey;
  * A {@link PartitionView} that is backed by a directory in a file system.
  */
 @Immutable
-class FileSystemPartitionView<E> extends FileSystemView<E>
+public class FileSystemPartitionView<E> extends FileSystemView<E>
     implements PartitionView<E> {
 
   private static final Splitter PATH_SPLITTER = Splitter.on('/');
@@ -96,7 +96,7 @@ class FileSystemPartitionView<E> extends FileSystemView<E>
     return URI.create(location.toString());
   }
 
-  URI getRelativeLocation() {
+  public URI getRelativeLocation() {
     return relativeLocation;
   }
 

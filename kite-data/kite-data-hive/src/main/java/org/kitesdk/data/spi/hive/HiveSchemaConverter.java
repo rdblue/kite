@@ -193,6 +193,8 @@ public class HiveSchemaConverter {
         if (type.getClass() == charClass || type.getClass() == varcharClass) {
           // this is required because type name includes length
           return Schema.create(Schema.Type.STRING);
+        } else if (type.getClass() == decimalClass) {
+          return Schema.createFixed(name, null, null, 8);
         }
 
         String typeInfoName = type.getTypeName();

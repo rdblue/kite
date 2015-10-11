@@ -186,11 +186,11 @@ public class FileSystemDataset<E> extends AbstractDataset<E> implements
     return view;
   }
 
-  FileSystemPartitionView<E> getPartitionView(URI location) {
+  public FileSystemPartitionView<E> getPartitionView(URI location) {
     return FileSystemPartitionView.getPartition(unbounded, location);
   }
 
-  FileSystemPartitionView<E> getPartitionView(Path location) {
+  public FileSystemPartitionView<E> getPartitionView(Path location) {
     return FileSystemPartitionView.getPartition(unbounded, location);
   }
 
@@ -203,11 +203,11 @@ public class FileSystemDataset<E> extends AbstractDataset<E> implements
     return partitionKey;
   }
 
-  FileSystem getFileSystem() {
+  public FileSystem getFileSystem() {
     return fileSystem;
   }
 
-  Path getDirectory() {
+  public Path getDirectory() {
     return directory;
   }
 

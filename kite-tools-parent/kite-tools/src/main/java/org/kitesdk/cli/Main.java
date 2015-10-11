@@ -51,6 +51,7 @@ import org.kitesdk.cli.commands.ListCommand;
 import org.kitesdk.cli.commands.Log4jConfigCommand;
 import org.kitesdk.cli.commands.MergeParquetCommand;
 import org.kitesdk.cli.commands.ObjectSchemaCommand;
+import org.kitesdk.cli.commands.ParallelMergeParquetCommand;
 import org.kitesdk.cli.commands.SchemaCommand;
 import org.kitesdk.cli.commands.ShowRecordsCommand;
 import org.kitesdk.cli.commands.TarImportCommand;
@@ -118,6 +119,7 @@ public class Main extends Configured implements Tool {
     jc.addCommand("flume-config", new FlumeConfigCommand(console));
     jc.addCommand("tar-import", new TarImportCommand(console));
     jc.addCommand("merge-parquet", new MergeParquetCommand(console));
+    jc.addCommand("parallel-merge-parquet", new ParallelMergeParquetCommand(console));
   }
 
   @Override

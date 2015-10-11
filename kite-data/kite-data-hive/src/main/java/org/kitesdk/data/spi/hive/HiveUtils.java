@@ -410,10 +410,10 @@ class HiveUtils {
 
   private static final Map<String, String> PROVIDED_TYPES = ImmutableMap
       .<String, String>builder()
-      .put("tinyint", "int")
-      .put("smallint", "int")
-      .put("int", "int")
-      .put("bigint", "long")
+//      .put("tinyint", "int")
+//      .put("smallint", "int")
+//      .put("int", "int")
+//      .put("bigint", "long")
       .build();
 
   /**
