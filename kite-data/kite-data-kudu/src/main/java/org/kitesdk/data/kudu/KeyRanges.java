@@ -38,6 +38,7 @@ import java.util.List;
 public class KeyRanges implements Iterable<Pair<PartialRow, PartialRow>> {
   private final Schema schema;
   private final List<In<Object>> inPredicates;
+  private final List<Predicate<?>> residuals;
   private final Range<Object> range;
 
   @SuppressWarnings("unchecked")
@@ -72,6 +73,10 @@ public class KeyRanges implements Iterable<Pair<PartialRow, PartialRow>> {
 
     this.inPredicates = predicates.build();
     this.range = range;
+
+    // TODO: build residuals
+    ImmutableList.Builder<Predicate<?>> residuals = ImmutableList.builder();
+    this.residuals = residuals.build();
   }
 
   private static <S, T> Predicate<T> getPartitionPredicate(
@@ -134,7 +139,7 @@ public class KeyRanges implements Iterable<Pair<PartialRow, PartialRow>> {
 
       int n = product.size();
       for (int i = 0; i < product.size(); i += 1) {
-        ColumnSchema column = schema.getColumn(i);
+        ColumnSchema column = schema.getColumnByIndex(i);
         KuduUtil.addValue(lower, column, i, product.get(i));
         if (range == null && (i + 1) == product.size()) {
           // adjust the upper bound to make a range
@@ -148,7 +153,7 @@ public class KeyRanges implements Iterable<Pair<PartialRow, PartialRow>> {
       // if the range is null, the last value was turned into a range above
       // if not null, then add the range's endpoints
       if (range != null) {
-        ColumnSchema rangeColumn = schema.getColumn(n);
+        ColumnSchema rangeColumn = schema.getColumnByIndex(n);
 
         // if it isn't exclusive already, make an exclusive value
         Object upperEndpoint = range.isUpperBoundClosed() ?

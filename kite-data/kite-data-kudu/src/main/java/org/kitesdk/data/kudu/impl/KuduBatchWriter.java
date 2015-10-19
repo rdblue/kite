@@ -85,7 +85,7 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
   public void close() {
     if (state == ReaderWriterState.OPEN) {
       this.state = ReaderWriterState.CLOSED;
-      List<BatchResponse> results;
+      List<OperationResponse> results;
       try {
         results = this.session.close();
         this.session = null;
@@ -107,7 +107,7 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
   public void flush() {
     Preconditions.checkState(isOpen(), "Cannot flush: not open");
 
-    List<BatchResponse> results;
+    List<OperationResponse> results;
     try {
       results = this.session.flush();
     } catch (Exception e) {
@@ -118,12 +118,12 @@ public class KuduBatchWriter<E> extends AbstractDatasetWriter<E> implements Flus
     handleResults(results);
   }
 
-  private void handleResults(List<BatchResponse> results) {
-    for (BatchResponse response : results) {
-      if (response.hasRowErrors()) {
+  private void handleResults(List<OperationResponse> results) {
+    for (OperationResponse response : results) {
+      if (response.hasRowError()) {
         this.state = ReaderWriterState.ERROR;
         throw new DatasetOperationException(
-            "Write operation failed: " + response.getRowErrors());
+            "Write operation failed: " + response.getRowError());
       }
     }
   }

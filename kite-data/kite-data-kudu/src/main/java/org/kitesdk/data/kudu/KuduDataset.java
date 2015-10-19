@@ -18,6 +18,8 @@ package org.kitesdk.data.kudu;
 
 import com.google.common.base.Preconditions;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapreduce.InputFormat;
 import org.kitesdk.data.DatasetDescriptor;
 import org.kitesdk.data.DatasetOperationException;
 import org.kitesdk.data.DatasetRecordException;
@@ -27,6 +29,7 @@ import org.kitesdk.data.RefinableView;
 import org.kitesdk.data.spi.AbstractDataset;
 import org.kitesdk.data.spi.AbstractRefinableView;
 import org.kitesdk.data.spi.Constraints;
+import org.kitesdk.data.spi.InputFormatAccessor;
 import org.kududb.client.KuduClient;
 import org.kududb.client.KuduSession;
 import org.kududb.client.KuduTable;
@@ -38,7 +41,7 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 
 public class KuduDataset<E> extends AbstractDataset<E>
-    implements RandomAccessDataset<E> {
+    implements RandomAccessDataset<E>, InputFormatAccessor<E> {
   private final String namespace;
   private final String name;
   private final KuduView<E> unbounded;
@@ -142,15 +145,29 @@ public class KuduDataset<E> extends AbstractDataset<E>
   }
 
   @Override
+  public InputFormat<E, Void> getInputFormat(Configuration conf) {
+    return unbounded.getInputFormat(conf);
+  }
+
+  @Override
+  public void configure(Configuration conf) {
+    unbounded.configure(conf);
+  }
+
+  @Override
   public URI getUri() {
     return uri;
   }
 
-  protected KuduClient getClient() {
+  String getMaster() {
+    return uri.getAuthority();
+  }
+
+  KuduClient getClient() {
     return kuduClient;
   }
 
-  protected KuduTable getTable() {
+  KuduTable getTable() {
     return kuduTable;
   }
 }

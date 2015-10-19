@@ -16,8 +16,11 @@
 package org.kitesdk.data;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import org.kitesdk.data.spi.PartitionStrategyParser;
@@ -36,6 +39,7 @@ import org.kitesdk.data.impl.Accessor;
 import org.kitesdk.data.spi.partition.HashFieldPartitioner;
 import org.kitesdk.data.spi.partition.IdentityFieldPartitioner;
 import org.kitesdk.data.spi.partition.IntRangeFieldPartitioner;
+import org.kitesdk.data.spi.partition.ProvidedFieldPartitioner;
 import org.kitesdk.data.spi.partition.RangeFieldPartitioner;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
@@ -69,6 +73,7 @@ public class PartitionStrategy {
 
   private final List<FieldPartitioner> fieldPartitioners;
   private final Map<String, FieldPartitioner> partitionerMap;
+  private final ImmutableListMultimap<String, FieldPartitioner> bySource;
 
   static {
     Accessor.setDefault(new AccessorImpl());
@@ -81,10 +86,16 @@ public class PartitionStrategy {
     this.fieldPartitioners = ImmutableList.copyOf(partitioners);
     ImmutableMap.Builder<String, FieldPartitioner> mapBuilder =
         ImmutableMap.builder();
+    ImmutableListMultimap.Builder<String, FieldPartitioner> sourceBuilder =
+        ImmutableListMultimap.builder();
     for (FieldPartitioner fp : partitioners) {
       mapBuilder.put(fp.getName(), fp);
+      if (!(fp instanceof ProvidedFieldPartitioner)) {
+        sourceBuilder.put(fp.getSourceName(), fp);
+      }
     }
     this.partitionerMap = mapBuilder.build();
+    this.bySource = sourceBuilder.build();
   }
 
   /**
@@ -98,6 +109,10 @@ public class PartitionStrategy {
    */
   List<FieldPartitioner> getFieldPartitioners() {
     return fieldPartitioners;
+  }
+
+  public List<FieldPartitioner> getPartitionersBySource(String source) {
+    return bySource.get(source);
   }
 
   /**

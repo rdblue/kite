@@ -498,6 +498,11 @@ public class FileSystemDataset<E> extends AbstractDataset<E> implements
     return new FileSystemViewKeyInputFormat<E>(this, conf);
   }
 
+  @Override
+  public void configure(Configuration conf) {
+    unbounded.configure(conf);
+  }
+
   @SuppressWarnings("unchecked")
   private Path toDirectoryName(@Nullable Path dir, PartitionKey key) {
     Path result = dir;

@@ -168,6 +168,10 @@ class FileSystemView<E> extends AbstractRefinableView<E> implements InputFormatA
     return new FileSystemViewKeyInputFormat<E>(this, conf);
   }
 
+  @Override
+  public void configure(Configuration conf) {
+  }
+
   PathIterator pathIterator() {
     if (dataset.getDescriptor().isPartitioned()) {
       return new PathIterator(fs, root, partitionIterator());

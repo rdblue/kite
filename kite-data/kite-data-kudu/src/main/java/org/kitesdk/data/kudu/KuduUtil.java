@@ -16,20 +16,29 @@
 
 package org.kitesdk.data.kudu;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.DiscreteDomains;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.IndexedRecord;
+import org.apache.avro.reflect.ReflectData;
 import org.apache.avro.util.Utf8;
 import org.kitesdk.data.spi.Conversions;
 import org.kitesdk.data.spi.EntityAccessor;
 import org.kitesdk.data.spi.predicates.Range;
 import org.kitesdk.data.spi.predicates.Ranges;
 import org.kududb.ColumnSchema;
+import org.kududb.client.ColumnRangePredicate;
 import org.kududb.client.Insert;
 import org.kududb.client.KuduTable;
 import org.kududb.client.PartialRow;
+import org.kududb.client.RowResult;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class KuduUtil {
 
@@ -45,6 +54,53 @@ public class KuduUtil {
     }
 
     return insert;
+  }
+
+  public static ColumnRangePredicate toKuduPredicate(Range<?> range,
+                                                     ColumnSchema column) {
+    Range<?> closed = addMissingEndpoints(column, range);
+    ColumnRangePredicate predicate = new ColumnRangePredicate(column);
+    switch (column.getType()) {
+      case INT8:
+        predicate.setLowerBound(((Number) closed.lowerEndpoint()).byteValue());
+        predicate.setUpperBound(((Number) closed.upperEndpoint()).byteValue());
+        break;
+      case INT16:
+        predicate.setLowerBound(((Number) closed.lowerEndpoint()).shortValue());
+        predicate.setUpperBound(((Number) closed.upperEndpoint()).shortValue());
+        break;
+      case INT32:
+        predicate.setLowerBound(((Number) closed.lowerEndpoint()).intValue());
+        predicate.setUpperBound(((Number) closed.upperEndpoint()).intValue());
+        break;
+      case INT64:
+        predicate.setLowerBound(((Number) closed.lowerEndpoint()).longValue());
+        predicate.setUpperBound(((Number) closed.upperEndpoint()).longValue());
+        break;
+      case FLOAT:
+        predicate.setLowerBound(((Number) closed.lowerEndpoint()).floatValue());
+        predicate.setUpperBound(((Number) closed.upperEndpoint()).floatValue());
+        break;
+      case DOUBLE:
+        predicate.setLowerBound(((Number) closed.lowerEndpoint()).doubleValue());
+        predicate.setUpperBound(((Number) closed.upperEndpoint()).doubleValue());
+        break;
+      case STRING:
+        predicate.setLowerBound(closed.lowerEndpoint().toString());
+        predicate.setUpperBound(closed.upperEndpoint().toString());
+        break;
+      case BINARY:
+        predicate.setLowerBound(
+            copyFromByteBuffer((ByteBuffer) closed.lowerEndpoint()));
+        predicate.setUpperBound(
+            copyFromByteBuffer((ByteBuffer) closed.upperEndpoint()));
+        break;
+      default:
+        throw new UnsupportedOperationException(String.format(
+            "Cannot create a column range predicate for %s: %s",
+            column.getName(), column.getType()));
+    }
+    return predicate;
   }
 
   public static void addValue(PartialRow row, ColumnSchema column, int ordinal,
@@ -152,8 +208,8 @@ public class KuduUtil {
     }
   }
 
-  private static final byte[] MIN_VALUE = new byte[0];
-  private static final byte[] MAX_VALUE = new byte[] { // there is no true max, but this is close
+  private static final byte[] MIN_BYTES = new byte[0];
+  private static final byte[] MAX_BYTES = new byte[] {
       (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
       (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
       (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
@@ -162,8 +218,19 @@ public class KuduUtil {
       (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
       (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
       (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
-  private static final Utf8 MIN_UTF8 = new Utf8(MIN_VALUE);
-  private static final Utf8 MAX_UTF8 = new Utf8(MAX_VALUE);
+
+  // 0xFFFD is the unicode "replacement character"
+  // See http://unicode.org/faq/utf_bom.html
+  private static final Utf8 MIN_UTF8 = new Utf8(new byte[0]);
+  private static final Utf8 MAX_UTF8 = new Utf8(new byte[] {
+      (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD,
+      (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD,
+      (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD,
+      (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD,
+      (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD,
+      (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD,
+      (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD,
+      (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFD});
 
   @SuppressWarnings("unchecked")
   public static <T> Range<T> addMissingEndpoints(
@@ -258,5 +325,86 @@ public class KuduUtil {
     buf.mark();
     buf.get(copy).reset();
     return copy;
+  }
+
+  public static <E> E makeRecord(RowResult result, Class<E> recordClass, Schema schema) {
+    E record = newRecordInstance(recordClass, schema);
+
+    if (record instanceof IndexedRecord) {
+      fillIndexed(result, (IndexedRecord) record, schema);
+    } else {
+      fillReflect(result, record, schema);
+    }
+
+    return record;
+  }
+
+  private static void fillIndexed(RowResult result, IndexedRecord record, Schema schema) {
+    List<ColumnSchema> columns = result.getColumnProjection().getColumns();
+    for (int ordinal = 0; ordinal < columns.size(); ordinal += 1) {
+      ColumnSchema column = columns.get(ordinal);
+      Object value = getValue(column, ordinal, result);
+      int pos = schema.getField(column.getName()).pos();
+      record.put(pos, value);
+    }
+  }
+
+  private static void fillReflect(RowResult result, Object record, Schema schema) {
+    List<ColumnSchema> columns = result.getColumnProjection().getColumns();
+    for (int ordinal = 0; ordinal < columns.size(); ordinal += 1) {
+      ColumnSchema column = columns.get(ordinal);
+      Object value = getValue(column, ordinal, result);
+      Schema.Field field = schema.getField(column.getName());
+      ReflectData.get().setField(record, field.name(), field.pos(), value);
+    }
+  }
+
+  private static Object getValue(ColumnSchema column, int ordinal,
+                                 RowResult result) {
+    switch (column.getType()) {
+      case BOOL:
+        return result.getBoolean(ordinal);
+      case INT8:
+        return (int) result.getByte(ordinal);
+      case INT16:
+        return (int) result.getShort(ordinal);
+      case INT32:
+        return result.getInt(ordinal);
+      case INT64:
+        return result.getLong(ordinal);
+      case FLOAT:
+        return result.getFloat(ordinal);
+      case DOUBLE:
+        return result.getDouble(ordinal);
+      case STRING:
+        return result.getString(ordinal);
+      case BINARY:
+        // already a ByteBuffer. fixed is not supported.
+        return result.getBinary(ordinal);
+      default:
+        throw new IllegalArgumentException("Unknown type: " + column);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <E> E newRecordInstance(Class<E> recordClass, Schema schema) {
+    if (recordClass != GenericData.Record.class && !recordClass.isInterface()) {
+      E record = (E) ReflectData.newInstance(recordClass, schema);
+      if (record != null) {
+        return record;
+      }
+    }
+    return (E) new GenericData.Record(schema);
+  }
+
+  private static Joiner.MapJoiner MAP_JOINER = Joiner.on('&').withKeyValueSeparator("=");
+  private static Splitter.MapSplitter MAP_SPLITTER = Splitter.on('&').withKeyValueSeparator("=");
+
+  public static String mapToString(Map<String, String> map) {
+    return MAP_JOINER.join(map);
+  }
+
+  public static Map<String, String> stringToMap(String string) {
+    return MAP_SPLITTER.split(string);
   }
 }

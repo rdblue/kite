@@ -20,14 +20,15 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.InputFormat;
 import org.kitesdk.data.DatasetReader;
 import org.kitesdk.data.DatasetWriter;
+import org.kitesdk.data.kudu.impl.KuduAvroInputFormat;
 import org.kitesdk.data.kudu.impl.KuduBatchReader;
 import org.kitesdk.data.kudu.impl.KuduBatchWriter;
 import org.kitesdk.data.spi.AbstractRefinableView;
 import org.kitesdk.data.spi.Constraints;
 import org.kitesdk.data.spi.InputFormatAccessor;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
-public class KuduView<E> extends AbstractRefinableView<E> implements InputFormatAccessor<E> {
+public class KuduView<E> extends AbstractRefinableView<E>
+    implements InputFormatAccessor<E> {
   private final KuduDataset<E> dataset;
 
   KuduView(KuduDataset<E> dataset, Class<E> type) {
@@ -57,19 +58,28 @@ public class KuduView<E> extends AbstractRefinableView<E> implements InputFormat
 
   @Override
   public InputFormat<E, Void> getInputFormat(Configuration conf) {
-    throw new NotImplementedException();
+    return new KuduAvroInputFormat<E>(this, conf);
+  }
+
+  @Override
+  public void configure(Configuration conf) {
+    KuduAvroInputFormat.configure(
+        dataset.getMaster(), dataset.getTable(), getSchema(), getConstraints(),
+        conf);
   }
 
   @Override
   public DatasetReader<E> newReader() {
-    KuduBatchReader<E> reader = new KuduBatchReader<E>(dataset.getClient(), dataset.getTable(), this);
+    KuduBatchReader<E> reader = new KuduBatchReader<E>(
+        dataset.getClient(), dataset.getTable(), this);
     reader.initialize();
     return reader;
   }
 
   @Override
   public DatasetWriter<E> newWriter() {
-    KuduBatchWriter<E> writer = new KuduBatchWriter<E>(dataset.getClient(), dataset.getTable(), this);
+    KuduBatchWriter<E> writer = new KuduBatchWriter<E>(
+        dataset.getClient(), dataset.getTable(), this);
     writer.initialize();
     return writer;
   }

@@ -22,18 +22,15 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.IndexedRecord;
-import org.apache.avro.reflect.ReflectData;
 import org.kitesdk.data.DatasetOperationException;
 import org.kitesdk.data.View;
 import org.kitesdk.data.kudu.KeyRanges;
+import org.kitesdk.data.kudu.KuduUtil;
 import org.kitesdk.data.spi.AbstractDatasetReader;
 import org.kitesdk.data.spi.AbstractRefinableView;
 import org.kitesdk.data.spi.EntityAccessor;
 import org.kitesdk.data.spi.Pair;
 import org.kitesdk.data.spi.ReaderWriterState;
-import org.kududb.ColumnSchema;
 import org.kududb.client.KuduClient;
 import org.kududb.client.KuduScanner;
 import org.kududb.client.KuduTable;
@@ -163,77 +160,7 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
 
     @Override
     public E apply(RowResult result) {
-      return makeRecord(result);
-    }
-
-    private E makeRecord(RowResult result) {
-      E record = newRecordInstance();
-
-      if (record instanceof IndexedRecord) {
-        fillIndexed(result, (IndexedRecord) record);
-      } else {
-        fillReflect(result, record);
-      }
-
-      return record;
-    }
-
-    private void fillIndexed(RowResult result, IndexedRecord record) {
-      List<ColumnSchema> columns = result.getColumnProjection().getColumns();
-      for (int ordinal = 0; ordinal < columns.size(); ordinal += 1) {
-        ColumnSchema column = columns.get(ordinal);
-        Object value = getValue(column, ordinal, result);
-        int pos = schema.getField(column.getName()).pos();
-        record.put(pos, value);
-      }
-    }
-
-    private void fillReflect(RowResult result, Object record) {
-      List<ColumnSchema> columns = result.getColumnProjection().getColumns();
-      for (int ordinal = 0; ordinal < columns.size(); ordinal += 1) {
-        ColumnSchema column = columns.get(ordinal);
-        Object value = getValue(column, ordinal, result);
-        Schema.Field field = schema.getField(column.getName());
-        ReflectData.get().setField(record, field.name(), field.pos(), value);
-      }
-    }
-
-    private static Object getValue(ColumnSchema column, int ordinal,
-                                   RowResult result) {
-      switch (column.getType()) {
-        case BOOL:
-          return result.getBoolean(ordinal);
-        case INT8:
-          return (int) result.getByte(ordinal);
-        case INT16:
-          return (int) result.getShort(ordinal);
-        case INT32:
-          return result.getInt(ordinal);
-        case INT64:
-          return result.getLong(ordinal);
-        case FLOAT:
-          return result.getFloat(ordinal);
-        case DOUBLE:
-          return result.getDouble(ordinal);
-        case STRING:
-          return result.getString(ordinal);
-        case BINARY:
-          // already a ByteBuffer. fixed is not supported.
-          return result.getBinary(ordinal);
-        default:
-          throw new IllegalArgumentException("Unknown type: " + column);
-      }
-    }
-
-    @SuppressWarnings("unchecked")
-    private E newRecordInstance() {
-      if (recordClass != GenericData.Record.class && !recordClass.isInterface()) {
-        E record = (E) ReflectData.newInstance(recordClass, schema);
-        if (record != null) {
-          return record;
-        }
-      }
-      return (E) new GenericData.Record(schema);
+      return KuduUtil.makeRecord(result, recordClass, schema);
     }
   }
 
@@ -252,7 +179,6 @@ public class KuduBatchReader<E> extends AbstractDatasetReader<E> {
   }
 
   private KuduScanner nextScanner() {
-    // if there is not at least one range, do a full table scan
     Pair<PartialRow, PartialRow> range = ranges.next();
     return client.newScannerBuilder(table)
         .setProjectedColumnNames(columns(accessor.getReadSchema()))

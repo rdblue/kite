@@ -150,6 +150,11 @@ class DaoDataset<E> extends AbstractDataset<E> implements RandomAccessDataset<E>
     return new HBaseViewKeyInputFormat<E>(this);
   }
 
+  @Override
+  public void configure(Configuration conf) {
+    unbounded.configure(conf);
+  }
+
   @SuppressWarnings("unchecked")
   private BaseDao<E> getBaseDao() {
     Dao<E> dao = getDao();

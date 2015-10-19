@@ -212,4 +212,8 @@ class DaoView<E> extends AbstractRefinableView<E> implements InputFormatAccessor
   public InputFormat<E, Void> getInputFormat(Configuration conf) {
     return new HBaseViewKeyInputFormat<E>(this);
   }
+
+  @Override
+  public void configure(Configuration conf) {
+  }
 }

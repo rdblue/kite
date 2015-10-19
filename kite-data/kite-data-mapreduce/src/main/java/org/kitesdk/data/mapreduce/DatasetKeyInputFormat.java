@@ -121,6 +121,12 @@ public class DatasetKeyInputFormat<E> extends InputFormat<E, Void>
       }
 
       conf.set(KITE_INPUT_URI, view.getUri().toString());
+
+      // TODO: should this be on InputFormatAccessor?
+      if (view instanceof InputFormatAccessor) {
+        ((InputFormatAccessor) view).configure(conf);
+      }
+
       return this;
     }
 
@@ -249,7 +255,7 @@ public class DatasetKeyInputFormat<E> extends InputFormat<E, Void>
   }
 
   @SuppressWarnings("unchecked")
-  private InputFormat<E, Void> getDelegateInputFormat(View<E> view, Configuration conf) {
+  private static <E> InputFormat<E, Void> getDelegateInputFormat(View<E> view, Configuration conf) {
     if (view instanceof InputFormatAccessor) {
       return ((InputFormatAccessor<E>) view).getInputFormat(conf);
     }

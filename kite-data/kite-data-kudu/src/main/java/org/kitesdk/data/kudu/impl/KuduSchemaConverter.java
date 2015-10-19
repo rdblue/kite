@@ -22,7 +22,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.avro.Schema;
 import org.codehaus.jackson.JsonNode;
+import org.codehaus.jackson.node.BinaryNode;
+import org.codehaus.jackson.node.DoubleNode;
+import org.codehaus.jackson.node.IntNode;
+import org.codehaus.jackson.node.LongNode;
 import org.codehaus.jackson.node.NullNode;
+import org.codehaus.jackson.node.TextNode;
 import org.kitesdk.data.PartitionStrategy;
 import org.kitesdk.data.impl.Accessor;
 import org.kitesdk.data.spi.FieldPartitioner;
@@ -30,7 +35,7 @@ import org.kitesdk.data.spi.SchemaUtil;
 import org.kitesdk.data.spi.partition.IdentityFieldPartitioner;
 import org.kududb.ColumnSchema;
 import org.kududb.Type;
-
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -39,12 +44,14 @@ public class KuduSchemaConverter {
   private static final ImmutableMap<Type, Schema.Type> KUDU_TO_AVRO_TYPE = ImmutableMap
       .<Type, Schema.Type>builder().put(Type.BINARY, Schema.Type.BYTES)
       .put(Type.BOOL, Schema.Type.BOOLEAN)
-      .put(Type.DOUBLE, Schema.Type.DOUBLE).put(Type.FLOAT, Schema.Type.FLOAT)
-          // TODO: Is this safe?
-      .put(Type.INT16, Schema.Type.INT).put(Type.INT32, Schema.Type.INT).put(
-          Type.INT64, Schema.Type.LONG)
-          // TODO: Is this safe?
-      .put(Type.INT8, Schema.Type.INT).put(Type.STRING, Schema.Type.STRING)
+      .put(Type.INT8, Schema.Type.INT)
+      .put(Type.INT16, Schema.Type.INT)
+      .put(Type.INT32, Schema.Type.INT)
+      .put(Type.INT64, Schema.Type.LONG)
+      .put(Type.FLOAT, Schema.Type.FLOAT)
+      .put(Type.DOUBLE, Schema.Type.DOUBLE)
+      .put(Type.STRING, Schema.Type.STRING)
+      .put(Type.BINARY, Schema.Type.BYTES)
           // TODO: Wait for AVRO-739 in 1.8.0
           //.put(Type.TIMESTAMP, Schema.Type.TIMESTAMP)
       .build();
@@ -81,13 +88,10 @@ public class KuduSchemaConverter {
   private static Schema.Field convertField(String name, ColumnSchema column) {
     Schema schema = convert(column.getType());
 
-    // TODO: Default values
-    //Object defaultValue = column.getDefaultValue();
-    JsonNode defaultValue = null;
+    JsonNode defaultValue = getDefaultValue(column);
 
     if (column.isNullable()) {
       schema = optional(schema);
-      defaultValue = NULL_DEFAULT;
     }
 
     return new Schema.Field(name, schema, doc(column.getType()), defaultValue);
@@ -184,6 +188,38 @@ public class KuduSchemaConverter {
       return schemas.get(0);
     } else {
       throw new IllegalArgumentException("No null schema: " + schemas);
+    }
+  }
+
+  private static JsonNode getDefaultValue(ColumnSchema column) {
+    switch (column.getType()) {
+      case BOOL:
+        return null;
+      case INT8:
+      case INT16:
+      case INT32:
+        return IntNode.valueOf(((Number) column.getDefaultValue()).intValue());
+      case INT64:
+        return LongNode.valueOf(((Number) column.getDefaultValue()).longValue());
+      case FLOAT:
+      case DOUBLE:
+        return DoubleNode.valueOf(((Number) column.getDefaultValue()).doubleValue());
+      case STRING:
+        return TextNode.valueOf((String) column.getDefaultValue());
+      case BINARY:
+        Object value = column.getDefaultValue();
+        if (value instanceof byte[]) {
+          return BinaryNode.valueOf((byte[]) value);
+        } else if (value instanceof ByteBuffer) {
+          ByteBuffer buf = (ByteBuffer) value;
+          buf.mark();
+          byte[] bytes = new byte[((ByteBuffer) value).remaining()];
+          buf.get(bytes);
+          buf.reset();
+          return BinaryNode.valueOf(bytes);
+        }
+      default:
+        return NULL_DEFAULT;
     }
   }
 }

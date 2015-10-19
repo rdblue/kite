@@ -25,5 +25,10 @@ public interface InputFormatAccessor<E> {
   /**
    * @return an input format for this dataset or view
    */
-  public InputFormat<E, Void> getInputFormat(Configuration conf);
+  InputFormat<E, Void> getInputFormat(Configuration conf);
+
+  /**
+   * Add InputFormat configuration for this view to conf
+   */
+  void configure(Configuration conf);
 }

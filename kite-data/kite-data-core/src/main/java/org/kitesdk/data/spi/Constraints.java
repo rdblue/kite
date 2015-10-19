@@ -350,6 +350,10 @@ public class Constraints {
     return provided; // Immutable, okay to return without copying
   }
 
+  Constraints with(String name, Predicate predicate) {
+    return new Constraints(this, name, predicate);
+  }
+
   @SuppressWarnings("unchecked")
   public Constraints with(String name, Object... values) {
     SchemaUtil.checkTypeConsistency(schema, strategy, name, values);
@@ -410,6 +414,15 @@ public class Constraints {
    */
   public Predicate get(String name) {
     return constraints.get(name);
+  }
+
+  /**
+   * Returns the current set of constraints.
+   *
+   * @return a Predicate for the given field, or null if none is set
+   */
+  public Map<String, Predicate> getAll() {
+    return constraints;
   }
 
   @SuppressWarnings("unchecked")
