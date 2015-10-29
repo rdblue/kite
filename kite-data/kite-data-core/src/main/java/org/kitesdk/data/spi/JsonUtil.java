@@ -235,17 +235,26 @@ public class JsonUtil {
 
   public static Object convertToAvro(GenericData model, JsonNode datum,
                                      Schema schema) {
-    if (datum == null) {
+    if (datum == null || datum instanceof NullNode) {
       return null;
     }
     switch (schema.getType()) {
       case RECORD:
-        DatasetRecordException.check(datum.isObject(),
+        DatasetRecordException.check(datum.isObject() || datum.isArray(),
             "Cannot convert non-object to record: %s", datum);
         Object record = model.newRecord(null, schema);
-        for (Schema.Field field : schema.getFields()) {
-          model.setField(record, field.name(), field.pos(),
-              convertField(model, datum.get(field.name()), field));
+        if (datum.isObject()) {
+          for (Schema.Field field : schema.getFields()) {
+            // access returns null if the name is missing
+            model.setField(record, field.name(), field.pos(),
+                convertField(model, datum.get(restoreDots(field.name())), field));
+          }
+        } else if (datum.isArray()) {
+          for (Schema.Field field : schema.getFields()) {
+            // access returns null if out of the array's bounds
+            model.setField(record, field.name(), field.pos(),
+                convertField(model, datum.get(field.pos()), field));
+          }
         }
         return record;
 
@@ -567,7 +576,7 @@ public class JsonUtil {
 
         for (Map.Entry<String, Schema> entry : fields.entrySet()) {
           recordFields.add(new Schema.Field(
-              entry.getKey(), entry.getValue(),
+              removeDots(entry.getKey()), entry.getValue(),
               "Type inferred from '" + object.get(entry.getKey()) + "'",
               null));
         }
@@ -650,5 +659,17 @@ public class JsonUtil {
     public Schema missing(MissingNode ignored) {
       throw new UnsupportedOperationException("MissingNode is not supported.");
     }
+
+  }
+
+  private static final String DOUBLE_UNDERSCORE = "__";
+  private static final String DOT = ".";
+
+  private static String removeDots(String name) {
+    return name.replace(DOT, DOUBLE_UNDERSCORE);
+  }
+
+  private static String restoreDots(String name) {
+    return name.replace(DOUBLE_UNDERSCORE, ".");
   }
 }
